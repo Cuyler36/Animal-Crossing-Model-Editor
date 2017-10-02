@@ -28,6 +28,7 @@ namespace Animal_Crossing_Model_Editor
         private Model3DGroup ModelGroup;
         private List<Color> Model_Colors = ColorStructToList();
         private int Color_Index = 10;
+        private int Triangle_Index = 0;
 
         public MainWindow()
         {
@@ -74,19 +75,34 @@ namespace Animal_Crossing_Model_Editor
                 {
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
                     byte[] Start_Face_Data = new byte[0];
-                    int Data_Size = Model_Data[0x49];
+                    int Model_Data_Start = 0x49;
+
+                    // Search for the first four 00's followed by 0A
+                    for (int i = 0; i < Model_Data.Length; i++)
+                    {
+                        if (i + 4 >= Model_Data.Length)
+                            MessageBox.Show("Couldn't find model data!");
+
+                        if (Model_Data[i] == 0x00 && Model_Data[i + 1] == 0x00 && Model_Data[i + 2] == 0x00 && Model_Data[i + 3] == 0x00 && Model_Data[i + 4] == 0x0A)
+                        {
+                            Model_Data_Start = i + 5;
+                            break;
+                        }
+                    }
+
+                    int Data_Size = Model_Data[Model_Data_Start];
 
                     // Get start face data
                     for (int i = Model_Data.Length - 1; i >= 0; i--)
                     {
                         if (Model_Data[i] == 0xDF)
                         {
-                            Start_Face_Data = Model_Data.Skip(i - 4).Take(3).ToArray();
+                            Start_Face_Data = Model_Data.Skip(i - 3).Take(3).ToArray();
                             break;
                         }
                     }
 
-                    Model_Data = Model_Data.Skip(0x4A).Take(Data_Size).ToArray();
+                    Model_Data = Model_Data.Skip(Model_Data_Start + 1).Take(Data_Size).ToArray();
 
                     ModelGroup = new Model3DGroup();
                     MeshBuilder Builder = new MeshBuilder(false, false);
@@ -107,6 +123,30 @@ namespace Animal_Crossing_Model_Editor
                     int Next_Nibble = 0;
 
                     string bytes = "";
+
+
+                    // Add start face data (TODO: Scan linearly until we reach 0xFD (continue + 0x10 bytes later) OR until we reach 0xDF (end of model data)
+                    //Array.Resize(ref Actual_Values, Actual_Values.Length + 3);
+                    int A = Start_Face_Data[0] & 0x0F;
+                    int B = (Start_Face_Data[1] >> 4) & 0x0F;
+                    int C = Start_Face_Data[1] & 0x0F;
+                    int D = (Start_Face_Data[2] >> 4) & 0x0F;
+
+                    // NOTE: I *think* these multiplier values are correct. You should probably double check them.
+                    int A_Value = (A * 4 + (B * 4) / 0x10) % End_Value;
+                    int B_Value = (B * 8 + (C * 8) / 0x10) % End_Value;
+                    int C_Value = (C * 16 + (D * 16) / 0x10) % End_Value;
+
+                    Skipped_List.Add(Points[(D * 1 + (0 * 1) / 0x10) % End_Value]); // Is this the first skipped or last skipped?
+
+                    Create_Triangle_Mesh(Points[A_Value], Points[B_Value], Points[C_Value]);
+
+                    bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", Actual_Values.Length - 3, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), 4, A_Value.ToString("X"));
+                    bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", Actual_Values.Length - 2, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), 8, B_Value.ToString("X"));
+                    bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", Actual_Values.Length - 1, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), 16, C_Value.ToString("X"));
+                    bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", Actual_Values.Length - 0, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), 1, ((D * 1 + (0 * 1) / 0x10) % End_Value).ToString("X"));
+
+                    Triangle_Index++;
 
                     for (int i = 0; i < Nibbles.Length; i++)
                     {
@@ -137,29 +177,17 @@ namespace Animal_Crossing_Model_Editor
                         bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", i, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), Multiplier, Actual_Index.ToString("X"));
                     }
 
-                    // Add start face data
-                    Array.Resize(ref Actual_Values, Actual_Values.Length + 3);
-                    int A = Start_Face_Data[0] & 0x0F;
-                    int B = (Start_Face_Data[1] >> 4) & 0x0F;
-                    int C = Start_Face_Data[1] & 0x0F;
-                    int D = (Start_Face_Data[2] >> 4) & 0x0F;
-
-                    // NOTE: I *think* these multiplier values are correct. You should probably double check them.
-                    Actual_Values[Actual_Values.Length - 3] = (A * 4 + (B * 4) / 0x10) % End_Value;
-                    Actual_Values[Actual_Values.Length - 2] = (B * 8 + (C * 8) / 0x10) % End_Value;
-                    Actual_Values[Actual_Values.Length - 1] = (C * 16 + (D * 16) / 0x10) % End_Value;
-                    Skipped_List.Add(Points[(D * 1 + (0 * 1) / 0x10) % End_Value]); // Is this the first skipped or last skipped?
-
                     Debug.WriteLine(bytes);
 
                     // NOTE: You should definitely check this part. I think this is wrong.
-                    int Skip = 1;
+                    int Skip = 2;
                     for (int i = 0; i < Actual_Values.Length; i += 4)
                     {
                         if (i == 0)
                         {
                             //Builder.AddTriangle(Points[Actual_Values[0]], Points[Actual_Values[1]], Points[Actual_Values[2]]);
-                            Create_Triangle_Mesh(Points[Actual_Values[0]], Points[Actual_Values[1]], Points[Actual_Values[2]], Color_Index);
+                            Create_Triangle_Mesh(Points[Actual_Values[0]], Points[Actual_Values[1]], Points[Actual_Values[2]], Triangle_Index);
+                            i--; // Subtract one so we start at 3
                         }
                         else
                         {
@@ -168,44 +196,52 @@ namespace Animal_Crossing_Model_Editor
                                 if (Skip % 4 == 0)
                                 {
                                     //Builder.AddTriangle(Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]]);
-                                    Create_Triangle_Mesh(Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]], Color_Index);
+                                    Create_Triangle_Mesh(Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]], Triangle_Index);
                                     Skipped_List.Add(Points[Actual_Values[i]]);
+                                    //Debug.WriteLine("Adding Skipped Point: " + Actual_Values[i].ToString("X2"));
                                 }
                                 else if (Skip % 4 == 1)
                                 {
                                     //Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]]);
-                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]], Color_Index);
+                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]], Triangle_Index);
                                     Skipped_List.Add(Points[Actual_Values[i + 1]]);
+                                    //Debug.WriteLine("Adding Skipped Point: " + Actual_Values[i + 1].ToString("X2"));
                                 }
                                 else if (Skip % 4 == 2)
                                 {
                                     //Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 3]]);
-                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 3]], Color_Index);
+                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 3]], Triangle_Index);
                                     Skipped_List.Add(Points[Actual_Values[i + 2]]);
+                                    //Debug.WriteLine("Adding Skipped Point: " + Actual_Values[i + 2].ToString("X2"));
                                 }
                                 else if (Skip % 4 == 3)
                                 {
+                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Triangle_Index);
+
                                     //Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]]);
-                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Color_Index);
-                                    // Always 0 so we don't add
+                                    //Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Triangle_Index);
+                                    Skipped_List.Add(Points[Actual_Values[i + 3]]);
+                                    Debug.WriteLine("Adding Skipped Point % = 3: " + Actual_Values[i + 3].ToString("X2"));
                                 }
                                 else
                                     throw new Exception("Skip modulus was invalid!");
                             }
-                            catch { }
+                            catch { MessageBox.Show("Skip failed for index: " + i); }
                             Skip++;
                         }
+                        Triangle_Index++;
                     }
 
                     Debug.WriteLine("Skipped_List Count: " + Skipped_List.Count);
                     
                     // Add Skipped Triangles
-                    for (int i = 1; i < Skipped_List.Count; i += 3)
+                    for (int i = 0; i < Skipped_List.Count; i += 3)
                     {
                         if (i + 2 >= Skipped_List.Count)
                             break;
                         //Builder.AddTriangle(Skipped_List[i], Skipped_List[i + 1], Skipped_List[i + 2]);
-                        Create_Triangle_Mesh(Skipped_List[i], Skipped_List[i + 1], Skipped_List[i + 2], Color_Index);
+                        //Create_Triangle_Mesh(Skipped_List[i], Skipped_List[i + 1], Skipped_List[i + 2], Triangle_Index);
+                        Triangle_Index++;
                     }
 
                     //MeshGeometry3D Mesh = Builder.ToMesh(true);
@@ -232,10 +268,15 @@ namespace Animal_Crossing_Model_Editor
         {
             if (Model_Colors[Color_Index].Equals(Colors.White))
                 Color_Index++; // Attempt to skip any white colors for the face. Only skips the first so if there's more than one in a row it'll still be white.
-            Console.WriteLine(string.Format("Creating Triangle #{0} with Color of {1}", Index - 10, Model_Colors[Index]));
+
+            if (A.Equals(B) || B.Equals(C) || A.Equals(C))
+                Debug.WriteLine(string.Format("One or more points have the same value! Triangle wont be formed! Index: {0} | Point A: {1} | Point B: {2} | Point C: {3}", Index, A, B, C));
+            else
+                Debug.WriteLine(string.Format("Creating triangle #{0} Vertex A: {1} | Vertex B: {2} | Vertex C: {3}", Index, A, B, C));
+            Console.WriteLine(string.Format("Creating Triangle #{0} with Color of {1}", Index, Model_Colors[Color_Index]));
             MeshBuilder Builder = new MeshBuilder(false, false);
             Builder.AddTriangle(A, B, C);
-            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Colors.White), Material = MaterialHelper.CreateMaterial(Model_Colors[Index]) });
+            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Colors.White), Material = MaterialHelper.CreateMaterial(Model_Colors[Color_Index]) });
             Color_Index++;
         }
 
