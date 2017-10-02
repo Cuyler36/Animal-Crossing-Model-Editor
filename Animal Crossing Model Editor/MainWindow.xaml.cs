@@ -232,7 +232,7 @@ namespace Animal_Crossing_Model_Editor
         {
             if (Model_Colors[Color_Index].Equals(Colors.White))
                 Color_Index++; // Attempt to skip any white colors for the face. Only skips the first so if there's more than one in a row it'll still be white.
-            Console.WriteLine(string.Format("Creating Triangle #{0} with Color of {1}", Index, Model_Colors[Index]));
+            Console.WriteLine(string.Format("Creating Triangle #{0} with Color of {1}", Index - 10, Model_Colors[Index]));
             MeshBuilder Builder = new MeshBuilder(false, false);
             Builder.AddTriangle(A, B, C);
             ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Colors.White), Material = MaterialHelper.CreateMaterial(Model_Colors[Index]) });
