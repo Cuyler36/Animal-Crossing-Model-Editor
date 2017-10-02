@@ -4,9 +4,30 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Animal_Crossing_Model_Editor"
+        xmlns:helix="http://helix-toolkit.org/wpf"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="Animal Crossing Model Editor" Height="500" Width="700">
     <Grid>
-        
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="150"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Menu Grid.Row="0" Grid.ColumnSpan="2">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open" Click="Open_Click"/>
+                <MenuItem Header="_Save"/>
+                <MenuItem Header="_Save As"/>
+            </MenuItem>
+        </Menu>
+        <helix:HelixViewport3D x:Name="viewPort3d" ZoomExtentsWhenLoaded="true" Grid.Column="0" Grid.Row="1" Background="#FF3E3E3E">
+            <ModelVisual3D x:Name="ModelVisualizer"/>
+            <!--<helix:PointsVisual3D x:Name="ModelPoints"/> -->
+            <helix:DefaultLights/>
+        </helix:HelixViewport3D>
+        <TreeView x:Name="VertexTreeView" Grid.Column="1" Grid.Row="1" Background="#FF3E3E3E" Foreground="White"/>
     </Grid>
 </Window>
