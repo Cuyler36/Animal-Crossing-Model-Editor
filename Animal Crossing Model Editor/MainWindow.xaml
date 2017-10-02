@@ -25,7 +25,7 @@
         </Menu>
         <helix:HelixViewport3D x:Name="viewPort3d" ZoomExtentsWhenLoaded="true" Grid.Column="0" Grid.Row="1" Background="#FF3E3E3E">
             <ModelVisual3D x:Name="ModelVisualizer"/>
-            <!--<helix:PointsVisual3D x:Name="ModelPoints"/> -->
+            <helix:PointsVisual3D x:Name="ModelPoints"/>
             <helix:DefaultLights/>
         </helix:HelixViewport3D>
         <TreeView x:Name="VertexTreeView" Grid.Column="1" Grid.Row="1" Background="#FF3E3E3E" Foreground="White"/>

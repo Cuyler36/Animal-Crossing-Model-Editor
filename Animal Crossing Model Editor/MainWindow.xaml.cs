@@ -46,22 +46,27 @@ namespace Animal_Crossing_Model_Editor
             // Convert to AC_Vectors and Point3Ds
             AC_Vector[] Vectors = new AC_Vector[Data.Length / 8]; // 8 shorts per Vector
             List<Point3D> Points = new List<Point3D>();
+            Point3DCollection PointCollection = new Point3DCollection();
             for (int i = 0; i < Vectors.Length; i++)
             {
                 Vectors[i] = new AC_Vector(Data.Skip(8 * i).Take(8).ToArray());
                 Points.Add(Vectors[i].ToPoint3D());
+                PointCollection.Add(Vectors[i].ToPoint3D());
             }
 
-            //ModelPoints.Color = Colors.White;
-            //ModelPoints.Points = Points;
-            //ModelPoints.Size = 10;
+            ModelPoints.Color = Colors.White;
+            ModelPoints.Points = PointCollection;
+            ModelPoints.Size = 10;
 
             // Generate 3D Model From Points
             string File_Name = Path.GetFileNameWithoutExtension(Model_Location);
-            if (File_Name.Substring(File_Name.Length - 2, 2).Equals("_v"))
+            if (File_Name.Substring(File_Name.Length - 2, 2).Equals("_v") && Model_Select_Dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                File_Name = File_Name.Substring(0, File_Name.Length - 2) + "_model.bin"; // Temp. Implement a way to select the model
-                string Model_Path = Path.GetDirectoryName(Model_Location) + "\\" + File_Name;
+                File_Name = Model_Select_Dialog.FileName;
+                if (!File_Name.ToLower().Contains("model"))
+                    return;
+
+                string Model_Path = File_Name;
                 if (File.Exists(Model_Path))
                 {
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
@@ -206,49 +211,6 @@ namespace Animal_Crossing_Model_Editor
             {
                 MessageBox.Show("Couldn't find the _model file!");
             }
-        }
-
-        private double Magnitude(Point3D A, Point3D B)
-        {
-            double Dx = B.X - A.X;
-            double Dy = B.Y - A.Y;
-            double Dz = B.Z - A.Z;
-
-            return Math.Sqrt(Dx * Dx + Dy * Dy + Dz * Dz);
-        }
-
-        private Point3D[] GetClosestPoints(Point3D Point, Point3DCollection Points)
-        {
-            Point3D ClosestA = Point;
-            Point3D ClosestB = Point;
-            double ClosestDistance = double.MaxValue;
-
-            for (int i = 0; i < Points.Count; i++)
-            {
-                if (Points[i] != Point)
-                {
-                    double Distance = Magnitude(Point, Points[i]);
-                    if (ClosestA == Point || Distance < ClosestDistance)
-                    {
-                        ClosestA = Points[i];
-                        ClosestDistance = Distance;
-                    }
-                }
-
-                ClosestDistance = double.MaxValue;
-
-                if (Points[i] != Point && Points[i] != ClosestA)
-                {
-                    double Distance = Magnitude(Point, Points[i]);
-                    if (ClosestA == Point || Distance < ClosestDistance)
-                    {
-                        ClosestB = Points[i];
-                        ClosestDistance = Distance;
-                    }
-                }
-            }
-
-            return new Point3D[2] { ClosestA, ClosestB };
         }
 
         private void Open_Click(object sender, RoutedEventArgs e)
