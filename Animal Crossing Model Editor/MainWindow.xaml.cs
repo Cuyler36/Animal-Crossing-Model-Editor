@@ -15,6 +15,7 @@ using System.IO;
 using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
 using System.Diagnostics;
+using System.Reflection;
 
 namespace Animal_Crossing_Model_Editor
 {
@@ -24,6 +25,9 @@ namespace Animal_Crossing_Model_Editor
     public partial class MainWindow : Window
     {
         private static System.Windows.Forms.OpenFileDialog Model_Select_Dialog = new System.Windows.Forms.OpenFileDialog();
+        private Model3DGroup ModelGroup;
+        private List<Color> Model_Colors = ColorStructToList();
+        private int Color_Index = 10;
 
         public MainWindow()
         {
@@ -32,10 +36,8 @@ namespace Animal_Crossing_Model_Editor
 
         private void LoadModel(string Model_Location)
         {
-            // Vecs for now
             byte[] Data_Array = File.ReadAllBytes(Model_Location);
-            // TEMP
-            //Array.Resize(ref Data_Array, Data_Array.Length - 0x40); // I don't know what the last bit of stuff is
+            
             short[] Data = new short[Data_Array.Length / 2];
 
             for (int i = 0; i < Data.Length; i++)
@@ -86,7 +88,7 @@ namespace Animal_Crossing_Model_Editor
 
                     Model_Data = Model_Data.Skip(0x4A).Take(Data_Size).ToArray();
 
-                    Model3DGroup ModelGroup = new Model3DGroup();
+                    ModelGroup = new Model3DGroup();
                     MeshBuilder Builder = new MeshBuilder(false, false);
 
                     byte[] Nibbles = new byte[Model_Data.Length * 2];
@@ -156,7 +158,8 @@ namespace Animal_Crossing_Model_Editor
                     {
                         if (i == 0)
                         {
-                            Builder.AddTriangle(Points[Actual_Values[0]], Points[Actual_Values[1]], Points[Actual_Values[2]]);
+                            //Builder.AddTriangle(Points[Actual_Values[0]], Points[Actual_Values[1]], Points[Actual_Values[2]]);
+                            Create_Triangle_Mesh(Points[Actual_Values[0]], Points[Actual_Values[1]], Points[Actual_Values[2]], Color_Index);
                         }
                         else
                         {
@@ -164,22 +167,26 @@ namespace Animal_Crossing_Model_Editor
                             {
                                 if (Skip % 4 == 0)
                                 {
-                                    Builder.AddTriangle(Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]]);
+                                    //Builder.AddTriangle(Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]]);
+                                    Create_Triangle_Mesh(Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]], Color_Index);
                                     Skipped_List.Add(Points[Actual_Values[i]]);
                                 }
                                 else if (Skip % 4 == 1)
                                 {
-                                    Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]]);
+                                    //Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]]);
+                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 2]], Points[Actual_Values[i + 3]], Color_Index);
                                     Skipped_List.Add(Points[Actual_Values[i + 1]]);
                                 }
                                 else if (Skip % 4 == 2)
                                 {
-                                    Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 3]]);
+                                    //Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 3]]);
+                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 3]], Color_Index);
                                     Skipped_List.Add(Points[Actual_Values[i + 2]]);
                                 }
                                 else if (Skip % 4 == 3)
                                 {
-                                    Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]]);
+                                    //Builder.AddTriangle(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]]);
+                                    Create_Triangle_Mesh(Points[Actual_Values[i]], Points[Actual_Values[i + 1]], Points[Actual_Values[i + 2]], Color_Index);
                                     // Always 0 so we don't add
                                 }
                                 else
@@ -197,12 +204,13 @@ namespace Animal_Crossing_Model_Editor
                     {
                         if (i + 2 >= Skipped_List.Count)
                             break;
-                        Builder.AddTriangle(Skipped_List[i], Skipped_List[i + 1], Skipped_List[i + 2]);
+                        //Builder.AddTriangle(Skipped_List[i], Skipped_List[i + 1], Skipped_List[i + 2]);
+                        Create_Triangle_Mesh(Skipped_List[i], Skipped_List[i + 1], Skipped_List[i + 2], Color_Index);
                     }
 
-                    MeshGeometry3D Mesh = Builder.ToMesh(true);
+                    //MeshGeometry3D Mesh = Builder.ToMesh(true);
 
-                    ModelGroup.Children.Add(new GeometryModel3D { Geometry = Mesh, Material = MaterialHelper.CreateMaterial(Colors.Red), BackMaterial = MaterialHelper.CreateMaterial(Colors.Yellow) });
+                    //ModelGroup.Children.Add(new GeometryModel3D { Geometry = Mesh, Material = MaterialHelper.CreateMaterial(Colors.Red), BackMaterial = MaterialHelper.CreateMaterial(Colors.Yellow) });
 
                     Model3D Model = ModelGroup;
                     ModelVisualizer.Content = Model;
@@ -216,6 +224,26 @@ namespace Animal_Crossing_Model_Editor
             {
                 MessageBox.Show("Couldn't find the _model file!");
             }
+        }
+
+        // Creates a triangle from 3 points and gives it a (probably) unique color to help determine which triangle it is.
+        // NOTE: White is the color of the back of the triangle. It is possible for the front to have it, but it's unlikely. Check the debug output for #FFFFFFFF if you think it might have been chosen.
+        private void Create_Triangle_Mesh(Point3D A, Point3D B, Point3D C, int Index = 0)
+        {
+            if (Model_Colors[Color_Index].Equals(Colors.White))
+                Color_Index++; // Attempt to skip any white colors for the face. Only skips the first so if there's more than one in a row it'll still be white.
+            Console.WriteLine(string.Format("Creating Triangle #{0} with Color of {1}", Index, Model_Colors[Index]));
+            MeshBuilder Builder = new MeshBuilder(false, false);
+            Builder.AddTriangle(A, B, C);
+            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Colors.White), Material = MaterialHelper.CreateMaterial(Model_Colors[Index]) });
+            Color_Index++;
+        }
+
+        private static List<Color> ColorStructToList()
+        {
+            return typeof(Colors).GetProperties(BindingFlags.Static | BindingFlags.DeclaredOnly | BindingFlags.Public)
+                                .Select(c => (Color)c.GetValue(null, null))
+                                .ToList();
         }
 
         private void Open_Click(object sender, RoutedEventArgs e)
