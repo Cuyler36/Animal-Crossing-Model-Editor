@@ -46,6 +46,7 @@ namespace Animal_Crossing_Model_Editor
             // Convert to AC_Vectors and Point3Ds
             AC_Vector[] Vectors = new AC_Vector[Data.Length / 8]; // 8 shorts per Vector
             List<Point3D> Points = new List<Point3D>();
+            List<Point3D> Skipped_List = new List<Point3D>();
             Point3DCollection PointCollection = new Point3DCollection();
             for (int i = 0; i < Vectors.Length; i++)
             {
@@ -73,6 +74,7 @@ namespace Animal_Crossing_Model_Editor
                     byte[] Start_Face_Data = new byte[0];
                     int Data_Size = Model_Data[0x49];
 
+                    // Get start face data
                     for (int i = Model_Data.Length - 1; i >= 0; i--)
                     {
                         if (Model_Data[i] == 0xDF)
@@ -83,8 +85,6 @@ namespace Animal_Crossing_Model_Editor
                     }
 
                     Model_Data = Model_Data.Skip(0x4A).Take(Data_Size).ToArray();
-                    Array.Resize(ref Model_Data, Model_Data.Length + 3);
-                    Start_Face_Data.CopyTo(Model_Data, Model_Data.Length - 3);
 
                     Model3DGroup ModelGroup = new Model3DGroup();
                     MeshBuilder Builder = new MeshBuilder(false, false);
@@ -134,19 +134,24 @@ namespace Animal_Crossing_Model_Editor
 
                         bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", i, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), Multiplier, Actual_Index.ToString("X"));
                     }
-                   /* }
-                    catch (Exception e)
-                    {
-                        MessageBox.Show("Error: " + e.Message);
-                        MessageBox.Show("Line Number: " + e.StackTrace);
-                    }*/
+
+                    // Add start face data
+                    Array.Resize(ref Actual_Values, Actual_Values.Length + 3);
+                    int A = Start_Face_Data[0] & 0x0F;
+                    int B = (Start_Face_Data[1] >> 4) & 0x0F;
+                    int C = Start_Face_Data[1] & 0x0F;
+                    int D = (Start_Face_Data[2] >> 4) & 0x0F;
+
+                    // NOTE: I *think* these multiplier values are correct. You should probably double check them.
+                    Actual_Values[Actual_Values.Length - 3] = (A * 4 + (B * 4) / 0x10) % End_Value;
+                    Actual_Values[Actual_Values.Length - 2] = (B * 8 + (C * 8) / 0x10) % End_Value;
+                    Actual_Values[Actual_Values.Length - 1] = (C * 16 + (D * 16) / 0x10) % End_Value;
+                    Skipped_List.Add(Points[(D * 1 + (0 * 1) / 0x10) % End_Value]); // Is this the first skipped or last skipped?
 
                     Debug.WriteLine(bytes);
 
+                    // NOTE: You should definitely check this part. I think this is wrong.
                     int Skip = 1;
-
-                    List<Point3D> Skipped_List = new List<Point3D>();
-
                     for (int i = 0; i < Actual_Values.Length; i += 4)
                     {
                         if (i == 0)
