@@ -31,53 +31,47 @@ namespace Animal_Crossing_Model_Editor
         private int Triangle_Index = 0;
         private int Section_Index = 0;
         private List<Point3D> Points;
+        private int Last_End_Vertex = 0;
 
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private byte[][] Get_Model_Sections(byte[] Model_Data, ref List<byte> Section_Sizes) // Model_Data should be stripped to the start of the first section (Immediately after 0x0A)
+        private byte[][] Get_Model_Sections(byte[] Model_Data, ref List<OffsetIncrementType> Section_EndType)
         {
             List<byte[]> Sections = new List<byte[]>();
-            bool End_Reached = false;
-            int i = 0;
-            while (!End_Reached)
+            for (int i = 0; i < Model_Data.Length; i++)
             {
-                for (i = 0; i < Model_Data.Length; i++)
+                byte Current_Byte = Model_Data[i];
+                if (Current_Byte == 0x0A) // Section start
                 {
-                    byte Value = Model_Data[i];
-                    if (Value == 0xD9 || Value == 0xFD)
+                    int Size = 0;
+                    if (Model_Data[i + 1] > 6)
+                        Size = Model_Data[i + 1] + 6; // Add 6 for the first "subsection" which only has 6 bytes (subsections are 8 bytes long)
+                    else
+                        Size = 8; // If we're <= 6 then we've only got that first 3 face section (6 bytes)
+
+                    Size += Size % 8; // When we don't get 8 byte aligned
+
+                    Sections.Add(Model_Data.Skip(i + 1).Take(Size - 1).ToArray()); // Size - 1 because otherwise we'll end up with an extra byte at the end
+                    Debug.WriteLine(string.Format("Adding section #{0} with a length of 0x{1}", Sections.Count - 1, Sections[Sections.Count - 1].Length.ToString("X")));
+
+                    byte End_Byte = Model_Data[i + Size];
+                    if (End_Byte == 0xD9 || End_Byte == 0xFD || End_Byte == 0xDF)
                     {
-                        Sections.Add(Model_Data.Take(i).ToArray());
-                        while (i < Model_Data.Length && Model_Data[i] != 0x0A)
-                        {
-                            i++; // Skip Texture Wrapping Data for now
-                            Debug.WriteLine("Skipping byte #" + i);
-                        }
-                        Model_Data = Model_Data.Skip(i + 1).ToArray();
-                        Debug.WriteLine("Model_Data[0] = " + Model_Data[0].ToString("X2"));
-                        break;
+                        Section_EndType.Add((OffsetIncrementType)End_Byte);
+                        i += Size + 1; // Skip all the data we just when through
                     }
-                    else if (Value == 0xDF) // End of model data
+                    else
                     {
-                        Sections.Add(Model_Data.Take(i).ToArray());
-                        End_Reached = true;
-                        break;
+                        Section_EndType.Add(OffsetIncrementType.NoIncrement);
+                        i += Size; // Skip all the data we just when through
                     }
-                    else if (i >= Model_Data.Length)
-                        End_Reached = true;
+
+                    Debug.WriteLine("i after skip: " + i + " | Value: " + Model_Data[i].ToString("X2"));
                 }
-                //Debug.WriteLine("Hi");
             }
-
-            for (int x = 0; x < Sections.Count; x++)
-            {
-                Debug.WriteLine(string.Format("Section {0} Length: {1}", x, Sections[x].Length));
-                for (int y = 0; y < Sections[x].Length; y++)
-                    Debug.WriteLine("\t{0}: 0x{1}", y, Sections[x][y].ToString("X2"));
-            }
-
             return Sections.ToArray();
         }
 
@@ -93,15 +87,14 @@ namespace Animal_Crossing_Model_Editor
             return Nibbles;
         }
 
-        private void Decrypt_Vertex_Indices(List<Point3D> Vertices, byte[] Nibbles, byte Vertex_Offset = 0)
+        private void Decrypt_Vertex_Indices(List<Point3D> Vertices, byte[] Nibbles, byte Vertex_Offset = 0, OffsetIncrementType End_Type = OffsetIncrementType.NoIncrement)
         {
             List<Point3D> Decrypted_Vertices = new List<Point3D>();
             int Multiplier = 1;
-            int End_Value = Vertices.Count % 16 == 0 ? Vertices.Count : Vertices.Count + (16 - (Vertices.Count % 16));
+            int End_Value = 32;//Vertices.Count % 16 == 0 ? Vertices.Count : Vertices.Count + (16 - (Vertices.Count % 16));
             int Current_Nibble = 0;
             int Next_Nibble = 0;
             string bytes = "";
-
             
             int Multiplier_Index = 3;
             int[] Actual_Values = new int[Nibbles.Length];
@@ -120,18 +113,25 @@ namespace Animal_Crossing_Model_Editor
                         Actual_Index += Vertex_Offset;
                         Actual_Values[i] = Actual_Index;
                         Multiplier = 0;
+
+                        if (End_Type == OffsetIncrementType.Increment && Last_End_Vertex < Actual_Index)
+                            Last_End_Vertex = Actual_Index;
                         break;
                     default:
                         Multiplier = AC_Vector.New_Multipliers[Multiplier_Index % 16];
 
                         Actual_Index = (Current_Nibble * Multiplier + (Next_Nibble * Multiplier) / 0x10) % End_Value;
                         Actual_Index += Vertex_Offset;
+                        //Actual_Index %= Vertices.Count;
 
                         if (Actual_Index >= Vertices.Count)
                         {
-                            Debug.WriteLine(string.Format("Actual_Index was greater than total array size. Subtracting 16 from modulus. Pre-sub value: {0}", Actual_Index.ToString("X")));
-                            Actual_Index = Actual_Index % (End_Value - 16);
+                            Debug.WriteLine(string.Format("Actual_Index was greater than total array size. Subtracting 16 from modulus. Index: {1} | Pre-sub value: {0}", Actual_Index.ToString("X"), i));
+                            //Actual_Index = Actual_Index % (End_Value - 16);
                         }
+
+                        if (Last_End_Vertex < Actual_Index)
+                            Last_End_Vertex = Actual_Index;
 
                         Actual_Values[i] = Actual_Index;
                         break;
@@ -140,6 +140,10 @@ namespace Animal_Crossing_Model_Editor
                 Multiplier_Index++;
                 bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", i, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), Multiplier, Actual_Index.ToString("X"));
             }
+
+            // Increment Last_End_Vertex to start on the next value
+            if (true || End_Type == OffsetIncrementType.Increment)
+                Last_End_Vertex++;
 
             // Actual Values to Vertices (Using Skip Algorithm)
             int Skip = 1;
@@ -150,30 +154,36 @@ namespace Animal_Crossing_Model_Editor
                 var Value_C = (i + 2) < Actual_Values.Length ? Actual_Values[i + 2] : 0;
                 var Value_D = (i + 3) < Actual_Values.Length ? Actual_Values[i + 3] : 0;
 
-                if (Skip % 4 == 0)
+                try
                 {
-                    Create_Triangle_Mesh(Vertices[Value_B], Vertices[Value_C], Vertices[Value_D], Triangle_Index, Value_B, Value_C, Value_D);
+                    if (Skip % 4 == 0)
+                    {
+                        Create_Triangle_Mesh(Vertices[Value_B], Vertices[Value_C], Vertices[Value_D], Triangle_Index, Value_B, Value_C, Value_D);
+                    }
+                    else if (Skip % 4 == 1)
+                    {
+                        Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_C], Vertices[Value_D], Triangle_Index, Value_A, Value_C, Value_D);
+                    }
+                    else if (Skip % 4 == 2)
+                    {
+                        Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_B], Vertices[Value_D], Triangle_Index, Value_A, Value_B, Value_D);
+                    }
+                    else if (Skip % 4 == 3)
+                    {
+                        Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_B], Vertices[Value_C], Triangle_Index, Value_A, Value_B, Value_C);
+                    }
+                    else
+                    {
+                        throw new Exception("Skip modulus was invalid!");
+                    }
                 }
-                else if (Skip % 4 == 1)
-                {
-                    Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_C], Vertices[Value_D], Triangle_Index, Value_A, Value_C, Value_D);
-                }
-                else if (Skip % 4 == 2)
-                {
-                    Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_B], Vertices[Value_D], Triangle_Index, Value_A, Value_B, Value_D);
-                }
-                else if (Skip % 4 == 3)
-                {
-                    Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_B], Vertices[Value_C], Triangle_Index, Value_A, Value_B, Value_C);
-                }
-                else
-                    throw new Exception("Skip modulus was invalid!");
+                catch { }
 
                 Skip++;
                 Triangle_Index++;
             }
 
-            Debug.WriteLine("Output for section #" + Section_Index);
+            Debug.WriteLine("Output for section #" + Section_Index + " | Vertex Offset: 0x" + Last_End_Vertex.ToString("X2"));
             Debug.WriteLine(bytes);
             Section_Index++;
         }
@@ -181,6 +191,7 @@ namespace Animal_Crossing_Model_Editor
         private void LoadModel(string Model_Location, bool New_File = true)
         {
             byte[] Data_Array = File.ReadAllBytes(Model_Location);
+            Last_End_Vertex = 0;
             
             short[] Data = new short[Data_Array.Length / 2];
 
@@ -217,30 +228,14 @@ namespace Animal_Crossing_Model_Editor
                 if (File.Exists(Model_Path))
                 {
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
-                    byte[] Start_Face_Data = new byte[0];
-                    int Model_Data_Start = 0x49;
-
-                    // Search for the first four 00's followed by 0A
-                    for (int i = 0; i < Model_Data.Length; i++)
-                    {
-                        if (i + 4 >= Model_Data.Length)
-                            MessageBox.Show("Couldn't find model data!");
-
-                        if (Model_Data[i] == 0x00 && Model_Data[i + 1] == 0x00 && Model_Data[i + 2] == 0x00 && Model_Data[i + 3] == 0x00 && Model_Data[i + 4] == 0x0A)
-                        {
-                            Model_Data_Start = i + 5;
-                            break;
-                        }
-                    }
-
                     ModelGroup = new Model3DGroup();
 
-                    List<byte> Section_Sizes = new List<byte>();
-                    byte[][] Sections = Get_Model_Sections(Model_Data.Skip(Model_Data_Start).ToArray(), ref Section_Sizes);
+                    List<OffsetIncrementType> Section_End_Types = new List<OffsetIncrementType>();
+                    byte[][] Sections = Get_Model_Sections(Model_Data, ref Section_End_Types);
                     for (int i = 0; i < Sections.Length; i++)
                     {
                         byte[] Section_Nibbles = Section_to_Nibbles(Sections[i]);
-                        Decrypt_Vertex_Indices(Points, Section_Nibbles);
+                        Decrypt_Vertex_Indices(Points, Section_Nibbles, (byte)Last_End_Vertex, Section_End_Types[i]);
                     }
 
                     ModelVisualizer.Content = ModelGroup;
@@ -304,6 +299,7 @@ namespace Animal_Crossing_Model_Editor
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
                     byte[] Start_Face_Data = new byte[0];
                     int Model_Data_Start = 0x49;
+                    Last_End_Vertex = 0;
 
                     // Search for the first four 00's followed by 0A
                     for (int i = 0; i < Model_Data.Length; i++)
@@ -318,12 +314,12 @@ namespace Animal_Crossing_Model_Editor
                         }
                     }
 
-                    List<byte> Section_Sizes = new List<byte>();
-                    byte[][] Sections = Get_Model_Sections(Model_Data.Skip(Model_Data_Start).ToArray(), ref Section_Sizes);
+                    List<OffsetIncrementType> Section_End_Types = new List<OffsetIncrementType>();
+                    byte[][] Sections = Get_Model_Sections(Model_Data.Skip(Model_Data_Start).ToArray(), ref Section_End_Types);
                     for (int i = 0; i < Sections.Length; i++)
                     {
                         byte[] Section_Nibbles = Section_to_Nibbles(Sections[i]);
-                        Decrypt_Vertex_Indices(Points, Section_Nibbles, 9);
+                        Decrypt_Vertex_Indices(Points, Section_Nibbles, 9, Section_End_Types[i]);
                     }
 
                     ModelVisualizer.Content = ModelGroup;

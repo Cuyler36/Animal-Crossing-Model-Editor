@@ -8,6 +8,13 @@ using System.Windows.Media.Media3D;
 
 namespace Animal_Crossing_Model_Editor
 {
+    public enum OffsetIncrementType : byte
+    {
+        NoIncrement = 0xD9,
+        Increment = 0xFD,
+        End = 0xDF
+    }
+
     class AC_Vector
     {
         public static int[] Multipliers = new int[16]
@@ -24,6 +31,14 @@ namespace Animal_Crossing_Model_Editor
             1, 2, 4, 8,
             16, 1, 2, 4,
             8, 16, 1, 0
+        };
+
+        public static int[] REAL_Multipliers = new int[16]
+        {
+            4, 8, 16, 1,
+            8, 16, 1, 2,
+            16, 1, 2, 4,
+            0, 2, 4, 8
         };
 
         // Probably not right
