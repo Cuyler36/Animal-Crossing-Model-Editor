@@ -18,8 +18,16 @@ namespace Animal_Crossing_Model_Editor
             2, 4, 8, 16
         };
 
+        public static int[] New_Multipliers = new int[16]
+        {
+            2, 4, 8, 16, // 0A 0X
+            1, 2, 4, 8,
+            16, 1, 2, 4,
+            8, 16, 1, 0
+        };
+
         // Probably not right
-        public double Scale = 0.001; // Scales the model down for ToPoint3D
+        public double Scale = 1; // Scales the model down for ToPoint3D
 
         public short X;
         public short Y;

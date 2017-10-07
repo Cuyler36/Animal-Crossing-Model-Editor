@@ -19,13 +19,15 @@
         <Menu Grid.Row="0" Grid.ColumnSpan="2">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open" Click="Open_Click"/>
+                <MenuItem Header="_Add Model" Click="Add_Model_Click"/>
+                <MenuItem Header="_Export" Click="Export_Click"/>
                 <MenuItem Header="_Save"/>
                 <MenuItem Header="_Save As"/>
             </MenuItem>
         </Menu>
         <helix:HelixViewport3D x:Name="viewPort3d" ZoomExtentsWhenLoaded="true" Grid.Column="0" Grid.Row="1" Background="#FF3E3E3E">
             <ModelVisual3D x:Name="ModelVisualizer"/>
-            <helix:PointsVisual3D x:Name="ModelPoints"/>
+            <!--<helix:PointsVisual3D x:Name="ModelPoints"/> -->
             <helix:DefaultLights/>
         </helix:HelixViewport3D>
         <TreeView x:Name="VertexTreeView" Grid.Column="1" Grid.Row="1" Background="#FF3E3E3E" Foreground="White"/>
