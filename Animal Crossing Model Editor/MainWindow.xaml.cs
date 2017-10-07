@@ -65,10 +65,11 @@ namespace Animal_Crossing_Model_Editor
                     }
                     else
                     {
-                        Section_EndType.Add(OffsetIncrementType.NoIncrement);
+                        Section_EndType.Add(OffsetIncrementType.Increment);
                         i += Size; // Skip all the data we just when through
                     }
 
+                    Debug.WriteLine("End Value:" + End_Byte.ToString("X2"));
                     Debug.WriteLine("i after skip: " + i + " | Value: " + Model_Data[i].ToString("X2"));
                 }
             }
@@ -114,7 +115,7 @@ namespace Animal_Crossing_Model_Editor
                         Actual_Values[i] = Actual_Index;
                         Multiplier = 0;
 
-                        if (End_Type == OffsetIncrementType.Increment && Last_End_Vertex < Actual_Index)
+                        if ((Section_Index == 0 || End_Type == OffsetIncrementType.Increment) && Last_End_Vertex < Actual_Index)
                             Last_End_Vertex = Actual_Index;
                         break;
                     default:
@@ -130,7 +131,7 @@ namespace Animal_Crossing_Model_Editor
                             //Actual_Index = Actual_Index % (End_Value - 16);
                         }
 
-                        if (Last_End_Vertex < Actual_Index)
+                        if ((Section_Index == 0 || End_Type == OffsetIncrementType.Increment) && Last_End_Vertex < Actual_Index)
                             Last_End_Vertex = Actual_Index;
 
                         Actual_Values[i] = Actual_Index;
@@ -142,7 +143,7 @@ namespace Animal_Crossing_Model_Editor
             }
 
             // Increment Last_End_Vertex to start on the next value
-            if (true || End_Type == OffsetIncrementType.Increment)
+            if ((Section_Index == 0 || End_Type == OffsetIncrementType.Increment))
                 Last_End_Vertex++;
 
             // Actual Values to Vertices (Using Skip Algorithm)
@@ -234,6 +235,7 @@ namespace Animal_Crossing_Model_Editor
                     byte[][] Sections = Get_Model_Sections(Model_Data, ref Section_End_Types);
                     for (int i = 0; i < Sections.Length; i++)
                     {
+                        Debug.WriteLine("Vertex Offset: " + Last_End_Vertex.ToString("X"));
                         byte[] Section_Nibbles = Section_to_Nibbles(Sections[i]);
                         Decrypt_Vertex_Indices(Points, Section_Nibbles, (byte)Last_End_Vertex, Section_End_Types[i]);
                     }
@@ -297,29 +299,14 @@ namespace Animal_Crossing_Model_Editor
                 if (File.Exists(Model_Path))
                 {
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
-                    byte[] Start_Face_Data = new byte[0];
-                    int Model_Data_Start = 0x49;
-                    Last_End_Vertex = 0;
-
-                    // Search for the first four 00's followed by 0A
-                    for (int i = 0; i < Model_Data.Length; i++)
-                    {
-                        if (i + 4 >= Model_Data.Length)
-                            MessageBox.Show("Couldn't find model data!");
-
-                        if (Model_Data[i] == 0x00 && Model_Data[i + 1] == 0x00 && Model_Data[i + 2] == 0x00 && Model_Data[i + 3] == 0x00 && Model_Data[i + 4] == 0x0A)
-                        {
-                            Model_Data_Start = i + 5;
-                            break;
-                        }
-                    }
 
                     List<OffsetIncrementType> Section_End_Types = new List<OffsetIncrementType>();
-                    byte[][] Sections = Get_Model_Sections(Model_Data.Skip(Model_Data_Start).ToArray(), ref Section_End_Types);
+                    byte[][] Sections = Get_Model_Sections(Model_Data, ref Section_End_Types);
                     for (int i = 0; i < Sections.Length; i++)
                     {
+                        Debug.WriteLine("Vertex Offset: " + Last_End_Vertex.ToString("X"));
                         byte[] Section_Nibbles = Section_to_Nibbles(Sections[i]);
-                        Decrypt_Vertex_Indices(Points, Section_Nibbles, 9, Section_End_Types[i]);
+                        Decrypt_Vertex_Indices(Points, Section_Nibbles, (byte)Last_End_Vertex, Section_End_Types[i]);
                     }
 
                     ModelVisualizer.Content = ModelGroup;

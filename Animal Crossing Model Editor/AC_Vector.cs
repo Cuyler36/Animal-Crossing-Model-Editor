@@ -11,7 +11,8 @@ namespace Animal_Crossing_Model_Editor
     public enum OffsetIncrementType : byte
     {
         NoIncrement = 0xD9,
-        Increment = 0xFD,
+        NoIncrememnt2 = 0xFD, // Increments in koopa shell. Probably not dependent upon these values then
+        Increment = 0xFF,
         End = 0xDF
     }
 
