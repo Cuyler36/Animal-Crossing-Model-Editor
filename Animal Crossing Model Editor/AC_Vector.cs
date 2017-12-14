@@ -16,7 +16,7 @@ namespace Animal_Crossing_Model_Editor
         End = 0xDF
     }
 
-    class AC_Vector
+    public class AC_Vector
     {
         public static int[] Multipliers = new int[16]
         {

@@ -16,6 +16,7 @@ using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
 using System.Diagnostics;
 using System.Reflection;
+using System.ComponentModel;
 
 namespace Animal_Crossing_Model_Editor
 {
@@ -32,167 +33,19 @@ namespace Animal_Crossing_Model_Editor
         private int Section_Index = 0;
         private List<Point3D> Points;
         private int Last_End_Vertex = 0;
+        private BackgroundWorker Parser_Worker = new BackgroundWorker();
 
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private byte[][] Get_Model_Sections(byte[] Model_Data, ref List<OffsetIncrementType> Section_EndType)
-        {
-            List<byte[]> Sections = new List<byte[]>();
-            for (int i = 0; i < Model_Data.Length; i++)
-            {
-                byte Current_Byte = Model_Data[i];
-                if (Current_Byte == 0x0A) // Section start
-                {
-                    int Size = 0;
-                    if (Model_Data[i + 1] > 6)
-                        Size = Model_Data[i + 1] + 6; // Add 6 for the first "subsection" which only has 6 bytes (subsections are 8 bytes long)
-                    else
-                        Size = 8; // If we're <= 6 then we've only got that first 3 face section (6 bytes)
-
-                    Size += Size % 8; // When we don't get 8 byte aligned
-
-                    Sections.Add(Model_Data.Skip(i + 1).Take(Size - 1).ToArray()); // Size - 1 because otherwise we'll end up with an extra byte at the end
-                    Debug.WriteLine(string.Format("Adding section #{0} with a length of 0x{1}", Sections.Count - 1, Sections[Sections.Count - 1].Length.ToString("X")));
-
-                    byte End_Byte = Model_Data[i + Size];
-                    if (End_Byte == 0xD9 || End_Byte == 0xFD || End_Byte == 0xDF)
-                    {
-                        Section_EndType.Add((OffsetIncrementType)End_Byte);
-                        i += Size + 1; // Skip all the data we just when through
-                    }
-                    else
-                    {
-                        Section_EndType.Add(OffsetIncrementType.Increment);
-                        i += Size; // Skip all the data we just when through
-                    }
-
-                    Debug.WriteLine("End Value:" + End_Byte.ToString("X2"));
-                    Debug.WriteLine("i after skip: " + i + " | Value: " + Model_Data[i].ToString("X2"));
-                }
-            }
-            return Sections.ToArray();
-        }
-
-        private byte[] Section_to_Nibbles(byte[] Section)
-        {
-            byte[] Nibbles = new byte[Section.Length * 2];
-            for (int i = 0; i < Section.Length; i++)
-            {
-                int Idx = i * 2;
-                Nibbles[Idx] = (byte)((Section[i] >> 4) & 0x0F);
-                Nibbles[Idx + 1] = (byte)(Section[i] & 0x0F);
-            }
-            return Nibbles;
-        }
-
-        private void Decrypt_Vertex_Indices(List<Point3D> Vertices, byte[] Nibbles, byte Vertex_Offset = 0, OffsetIncrementType End_Type = OffsetIncrementType.NoIncrement)
-        {
-            List<Point3D> Decrypted_Vertices = new List<Point3D>();
-            int Multiplier = 1;
-            int End_Value = 32;//Vertices.Count % 16 == 0 ? Vertices.Count : Vertices.Count + (16 - (Vertices.Count % 16));
-            int Current_Nibble = 0;
-            int Next_Nibble = 0;
-            string bytes = "";
-            
-            int Multiplier_Index = 3;
-            int[] Actual_Values = new int[Nibbles.Length];
-            for (int i = 1; i < Nibbles.Length; i++) // Skip the first one to avoid the 0
-            {
-                Current_Nibble = Nibbles[i];
-                Next_Nibble = (i + 1) >= Nibbles.Length ? 0 : Nibbles[i + 1];
-                int Actual_Index = 0;
-
-
-                // TODO: We can just remove the "skip" algorithm by not adding values whose multiplier is equal to 1
-                switch (Multiplier_Index % 16)
-                {
-                    case 15:
-                        Actual_Index = (Current_Nibble - 1) / 2;
-                        Actual_Index += Vertex_Offset;
-                        Actual_Values[i] = Actual_Index;
-                        Multiplier = 0;
-
-                        if ((Section_Index == 0 || End_Type == OffsetIncrementType.Increment) && Last_End_Vertex < Actual_Index)
-                            Last_End_Vertex = Actual_Index;
-                        break;
-                    default:
-                        Multiplier = AC_Vector.New_Multipliers[Multiplier_Index % 16];
-
-                        Actual_Index = (Current_Nibble * Multiplier + (Next_Nibble * Multiplier) / 0x10) % End_Value;
-                        Actual_Index += Vertex_Offset;
-                        //Actual_Index %= Vertices.Count;
-
-                        if (Actual_Index >= Vertices.Count)
-                        {
-                            Debug.WriteLine(string.Format("Actual_Index was greater than total array size. Subtracting 16 from modulus. Index: {1} | Pre-sub value: {0}", Actual_Index.ToString("X"), i));
-                            //Actual_Index = Actual_Index % (End_Value - 16);
-                        }
-
-                        if ((Section_Index == 0 || End_Type == OffsetIncrementType.Increment) && Last_End_Vertex < Actual_Index)
-                            Last_End_Vertex = Actual_Index;
-
-                        Actual_Values[i] = Actual_Index;
-                        break;
-                }
-
-                Multiplier_Index++;
-                bytes = bytes + string.Format("Nibble Index: {0} | Current_Nibble: 0x{1} | Next_Nibble: 0x{2} | Multiplier: {3} | Actual_Index: 0x{4}\n", i, Current_Nibble.ToString("X"), Next_Nibble.ToString("X"), Multiplier, Actual_Index.ToString("X"));
-            }
-
-            // Increment Last_End_Vertex to start on the next value
-            if ((Section_Index == 0 || End_Type == OffsetIncrementType.Increment))
-                Last_End_Vertex++;
-
-            // Actual Values to Vertices (Using Skip Algorithm)
-            int Skip = 1;
-            for (int i = 1; i < Actual_Values.Length; i += 4)
-            {
-                var Value_A = i < Actual_Values.Length ? Actual_Values[i] : 0;
-                var Value_B = (i + 1) < Actual_Values.Length ? Actual_Values[i + 1] : 0;
-                var Value_C = (i + 2) < Actual_Values.Length ? Actual_Values[i + 2] : 0;
-                var Value_D = (i + 3) < Actual_Values.Length ? Actual_Values[i + 3] : 0;
-
-                try
-                {
-                    if (Skip % 4 == 0)
-                    {
-                        Create_Triangle_Mesh(Vertices[Value_B], Vertices[Value_C], Vertices[Value_D], Triangle_Index, Value_B, Value_C, Value_D);
-                    }
-                    else if (Skip % 4 == 1)
-                    {
-                        Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_C], Vertices[Value_D], Triangle_Index, Value_A, Value_C, Value_D);
-                    }
-                    else if (Skip % 4 == 2)
-                    {
-                        Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_B], Vertices[Value_D], Triangle_Index, Value_A, Value_B, Value_D);
-                    }
-                    else if (Skip % 4 == 3)
-                    {
-                        Create_Triangle_Mesh(Vertices[Value_A], Vertices[Value_B], Vertices[Value_C], Triangle_Index, Value_A, Value_B, Value_C);
-                    }
-                    else
-                    {
-                        throw new Exception("Skip modulus was invalid!");
-                    }
-                }
-                catch { }
-
-                Skip++;
-                Triangle_Index++;
-            }
-
-            Debug.WriteLine("Output for section #" + Section_Index + " | Vertex Offset: 0x" + Last_End_Vertex.ToString("X2"));
-            Debug.WriteLine(bytes);
-            Section_Index++;
-        }
-
         private void LoadModel(string Model_Location, bool New_File = true)
         {
             byte[] Data_Array = File.ReadAllBytes(Model_Location);
             Last_End_Vertex = 0;
+            Section_Index = 0;
+            Triangle_Index = 0;
             
             short[] Data = new short[Data_Array.Length / 2];
 
@@ -231,13 +84,10 @@ namespace Animal_Crossing_Model_Editor
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
                     ModelGroup = new Model3DGroup();
 
-                    List<OffsetIncrementType> Section_End_Types = new List<OffsetIncrementType>();
-                    byte[][] Sections = Get_Model_Sections(Model_Data, ref Section_End_Types);
-                    for (int i = 0; i < Sections.Length; i++)
+                    var Faces = ModelParser.ParseModel(Model_Data, Points);
+                    foreach (Point3D[] Face in Faces)
                     {
-                        Debug.WriteLine("Vertex Offset: " + Last_End_Vertex.ToString("X"));
-                        byte[] Section_Nibbles = Section_to_Nibbles(Sections[i]);
-                        Decrypt_Vertex_Indices(Points, Section_Nibbles, (byte)Last_End_Vertex, Section_End_Types[i]);
+                        Create_Triangle_Mesh(Face[0], Face[1], Face[2], 0, 0, 0, 0);
                     }
 
                     ModelVisualizer.Content = ModelGroup;
@@ -299,14 +149,12 @@ namespace Animal_Crossing_Model_Editor
                 if (File.Exists(Model_Path))
                 {
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
+                    Section_Index = 0;
 
-                    List<OffsetIncrementType> Section_End_Types = new List<OffsetIncrementType>();
-                    byte[][] Sections = Get_Model_Sections(Model_Data, ref Section_End_Types);
-                    for (int i = 0; i < Sections.Length; i++)
+                    var Faces = ModelParser.ParseModel(Model_Data, Points);
+                    foreach (Point3D[] Face in Faces)
                     {
-                        Debug.WriteLine("Vertex Offset: " + Last_End_Vertex.ToString("X"));
-                        byte[] Section_Nibbles = Section_to_Nibbles(Sections[i]);
-                        Decrypt_Vertex_Indices(Points, Section_Nibbles, (byte)Last_End_Vertex, Section_End_Types[i]);
+                        Create_Triangle_Mesh(Face[0], Face[1], Face[2], 0, 0, 0, 0);
                     }
 
                     ModelVisualizer.Content = ModelGroup;
@@ -340,6 +188,11 @@ namespace Animal_Crossing_Model_Editor
                     //ModelPoints.Points = MP;
                 }
             }
+        }
+
+        private void MenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            // TODO: Import texture files (this means converting it from the AC format to a bitmap)
         }
     }
 }
