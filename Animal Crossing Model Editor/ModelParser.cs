@@ -20,6 +20,7 @@ namespace Animal_Crossing_Model_Editor
 
             List<uint> ConvertedData = new List<uint>();
 
+            // Convert all data into uint types for handling
             for (int i = 0; i < Model_Data.Length; i += 4)
             {
                 ConvertedData.Add((uint)((Model_Data[i] << 24) | (Model_Data[i + 1] << 16) | (Model_Data[i + 2] << 8) | Model_Data[i + 3]));
@@ -42,7 +43,7 @@ namespace Animal_Crossing_Model_Editor
             if (!Found_StartPoint)
                 return Faces;
 
-            uint FaceCount = (((Data[StartPoint] >> 16) & 0xFF) / 2) + 1;
+            uint FaceCount = (((Data[StartPoint] >> 16) & 0xFF) / 2) + 1; // Get the total number of faces in the model
             uint FacesLeft = FaceCount;
 
             if (IsDEBUG)
@@ -62,11 +63,11 @@ namespace Animal_Crossing_Model_Editor
             {
                 EndIndex = i + 2;
 
-                ulong CurrentFaceData = ((ulong)Data[i] << 32) | Data[i + 1];
+                ulong CurrentFaceData = ((ulong)Data[i] << 32) | Data[i + 1]; // Combine the two sections into one 64 bit datatype
 
-                uint vIndex_0 = (uint)((CurrentFaceData >> 4) & 0x1F);
-                uint vIndex_1 = (uint)((CurrentFaceData >> 9) & 0x1F);
-                uint vIndex_2 = (uint)((CurrentFaceData >> 14) & 0x1F);
+                uint vIndex_0 = (uint)((CurrentFaceData >> 4) & 0x1F);  // First vertex
+                uint vIndex_1 = (uint)((CurrentFaceData >> 9) & 0x1F); // Second vertex
+                uint vIndex_2 = (uint)((CurrentFaceData >> 14) & 0x1F); // Third vertex
 
                 if (vIndex_0 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_0;
@@ -88,12 +89,12 @@ namespace Animal_Crossing_Model_Editor
                     Vertices[(BaseIndex + (int)vIndex_2)  % Vertices.Count] });
 
                 FacesLeft--;
-                if (FacesLeft == 0)
+                if (FacesLeft == 0) // Check to see if we're done with the faces
                     break;
 
-                uint vIndex_3 = (uint)((CurrentFaceData >> 19) & 0x1F);
-                uint vIndex_4 = (uint)((CurrentFaceData >> 24) & 0x1F);
-                uint vIndex_5 = (uint)((CurrentFaceData >> 29) & 0x1F);
+                uint vIndex_3 = (uint)((CurrentFaceData >> 19) & 0x1F); // Fourth vertex
+                uint vIndex_4 = (uint)((CurrentFaceData >> 24) & 0x1F); // Fifth vertex
+                uint vIndex_5 = (uint)((CurrentFaceData >> 29) & 0x1F); // Sixth vertex
 
                 if (vIndex_3 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_3;
@@ -118,9 +119,9 @@ namespace Animal_Crossing_Model_Editor
                 if (FacesLeft == 0)
                     break;
 
-                uint vIndex_6 = (uint)((CurrentFaceData >> 34) & 0x1F);
-                uint vIndex_7 = (uint)((CurrentFaceData >> 39) & 0x1F);
-                uint vIndex_8 = (uint)((CurrentFaceData >> 44) & 0x1F);
+                uint vIndex_6 = (uint)((CurrentFaceData >> 34) & 0x1F); // Seventh vertex
+                uint vIndex_7 = (uint)((CurrentFaceData >> 39) & 0x1F); // Eighth vertex
+                uint vIndex_8 = (uint)((CurrentFaceData >> 44) & 0x1F); // Ninth vertex
 
                 if (vIndex_6 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_6;
@@ -145,11 +146,11 @@ namespace Animal_Crossing_Model_Editor
                 if (FacesLeft == 0)
                     break;
 
-                if (FirstPassFinished)
+                if (FirstPassFinished) // Only do this after the first 64 bit section (since the first byte is the section identifer (0x0A) and the second byte is the number of faces * 2 - 1)
                 {
-                    uint vIndex_9 = (uint)((CurrentFaceData >> 49) & 0x1F);
-                    uint vIndex_10 = (uint)((CurrentFaceData >> 54) & 0x1F);
-                    uint vIndex_11 = (uint)((CurrentFaceData >> 59) & 0x1F);
+                    uint vIndex_9 = (uint)((CurrentFaceData >> 49) & 0x1F); // Tenth vertex
+                    uint vIndex_10 = (uint)((CurrentFaceData >> 54) & 0x1F); // Eleventh vertex
+                    uint vIndex_11 = (uint)((CurrentFaceData >> 59) & 0x1F); // Twelth vertex
 
                     if (vIndex_9 > ThisBaseIndex)
                         ThisBaseIndex = (int)vIndex_9;
