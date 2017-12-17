@@ -62,9 +62,11 @@ namespace Animal_Crossing_Model_Editor
             {
                 EndIndex = i + 2;
 
-                uint vIndex_0 = (Data[i + 1] >> 4) & 0x1F;
-                uint vIndex_1 = (Data[i + 1] >> 14) & 0x1F;
-                uint vIndex_2 = (Data[i + 1] >> 9) & 0x1F;
+                ulong CurrentFaceData = ((ulong)Data[i] << 32) | Data[i + 1];
+
+                uint vIndex_0 = (uint)((CurrentFaceData >> 4) & 0x1F);
+                uint vIndex_1 = (uint)((CurrentFaceData >> 9) & 0x1F);
+                uint vIndex_2 = (uint)((CurrentFaceData >> 14) & 0x1F);
 
                 if (vIndex_0 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_0;
@@ -89,9 +91,9 @@ namespace Animal_Crossing_Model_Editor
                 if (FacesLeft == 0)
                     break;
 
-                uint vIndex_3 = ((((Data[i] & 0xFF) << 8) | (Data[i + 1] >> 24)) >> 5) & 0x1F;
-                uint vIndex_4 = (Data[i + 1] >> 24) & 0x1F;
-                uint vIndex_5 = (Data[i + 1] >> 19) & 0x1F;
+                uint vIndex_3 = (uint)((CurrentFaceData >> 19) & 0x1F);
+                uint vIndex_4 = (uint)((CurrentFaceData >> 24) & 0x1F);
+                uint vIndex_5 = (uint)((CurrentFaceData >> 29) & 0x1F);
 
                 if (vIndex_3 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_3;
@@ -116,9 +118,9 @@ namespace Animal_Crossing_Model_Editor
                 if (FacesLeft == 0)
                     break;
 
-                uint vIndex_6 = (Data[i] >> 2) & 0x1F;
-                uint vIndex_7 = (Data[i] >> 12) & 0x1F;
-                uint vIndex_8 = (Data[i] >> 7) & 0x1F;
+                uint vIndex_6 = (uint)((CurrentFaceData >> 34) & 0x1F);
+                uint vIndex_7 = (uint)((CurrentFaceData >> 39) & 0x1F);
+                uint vIndex_8 = (uint)((CurrentFaceData >> 44) & 0x1F);
 
                 if (vIndex_6 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_6;
@@ -145,9 +147,9 @@ namespace Animal_Crossing_Model_Editor
 
                 if (FirstPassFinished)
                 {
-                    uint vIndex_9 = (Data[i] >> 17) & 0x1F;
-                    uint vIndex_10 = (Data[i] >> 27) & 0x1F;
-                    uint vIndex_11 = (Data[i] >> 22) & 0x1F;
+                    uint vIndex_9 = (uint)((CurrentFaceData >> 49) & 0x1F);
+                    uint vIndex_10 = (uint)((CurrentFaceData >> 54) & 0x1F);
+                    uint vIndex_11 = (uint)((CurrentFaceData >> 59) & 0x1F);
 
                     if (vIndex_9 > ThisBaseIndex)
                         ThisBaseIndex = (int)vIndex_9;
