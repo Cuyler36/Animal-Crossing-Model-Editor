@@ -42,7 +42,7 @@ namespace Animal_Crossing_Model_Editor
             if (!Found_StartPoint)
                 return Faces;
 
-            uint FaceCount = GekkoInstructions.extrwi((Data[StartPoint] >> 16) & 0xFF, 7, 24) + 1;
+            uint FaceCount = (((Data[StartPoint] >> 16) & 0xFF) / 2) + 1;
             uint FacesLeft = FaceCount;
 
             if (IsDEBUG)
