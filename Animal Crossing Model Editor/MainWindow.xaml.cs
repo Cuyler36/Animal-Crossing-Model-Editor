@@ -91,6 +91,7 @@ namespace Animal_Crossing_Model_Editor
                     }
 
                     ModelVisualizer.Content = ModelGroup;
+                    viewPort3d.ZoomExtents();
                 }
                 else
                 {
@@ -110,11 +111,11 @@ namespace Animal_Crossing_Model_Editor
             //if (Model_Colors[Color_Index].Equals(Colors.White))
                 //Color_Index++; // Attempt to skip any white colors for the face. Only skips the first so if there's more than one in a row it'll still be white.
 
-            if (A.Equals(B) || B.Equals(C) || A.Equals(C))
+            /*if (A.Equals(B) || B.Equals(C) || A.Equals(C))
                 Debug.WriteLine(string.Format("One or more points have the same value! Triangle wont be formed! Index: {0} | Point A: {1} | Point B: {2} | Point C: {3}", Index, A, B, C));
             else
                 Debug.WriteLine(string.Format("Creating triangle #{0} Vertex A: {1} | Vertex B: {2} | Vertex C: {3} | Index A: {4} | Index B: {5} | Index C: {6}", Index, A, B, C, A_Value.ToString("X2"), B_Value.ToString("X2"), C_Value.ToString("X2")));
-
+                */
             //Console.WriteLine(string.Format("Creating Triangle #{0} with Color of {1}", Index, Model_Colors[Color_Index]));
             MeshBuilder Builder = new MeshBuilder(false, false);
             Builder.AddTriangle(A, B, C);
@@ -158,6 +159,7 @@ namespace Animal_Crossing_Model_Editor
                     }
 
                     ModelVisualizer.Content = ModelGroup;
+                    viewPort3d.ZoomExtents();
                 }
                 else
                 {

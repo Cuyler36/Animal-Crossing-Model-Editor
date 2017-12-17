@@ -10,9 +10,11 @@ namespace Animal_Crossing_Model_Editor
     public static class ModelParser
     {
         private static bool IsDEBUG = System.Diagnostics.Debugger.IsAttached;
+        private static int CurrentModelSectionIndex = 0;
 
         private static List<Point3D[]> GetModelSections(byte[] Model_Data, List<Point3D> Vertices, List<Point3D[]> Faces = null, int StartPoint = 0, int BaseIndex = 0)
         {
+            CurrentModelSectionIndex++;
             if (StartPoint >= Model_Data.Length)
                 return Faces;
 
@@ -45,6 +47,7 @@ namespace Animal_Crossing_Model_Editor
 
             if (IsDEBUG)
             {
+                Console.WriteLine("===== Section Start =====");
                 Console.WriteLine("Start Point: 0x" + (StartPoint * 4).ToString("X"));
                 Console.WriteLine("Faces: " + FaceCount);
             }
@@ -57,15 +60,11 @@ namespace Animal_Crossing_Model_Editor
 
             for (int i = StartPoint; i < Data.Length; i += 2)
             {
-
                 EndIndex = i + 2;
-                uint vRealValue_0 = Data[i + 1] & 0xFFFF;
-                uint vRealValue_1 = Data[i + 1];
-                uint vRealValue_2 = (Data[i + 1] >> 8) & 0xFF;
 
-                uint vIndex_0 = GekkoInstructions.extrwi(vRealValue_0, 5, 23);
-                uint vIndex_1 = GekkoInstructions.extrwi(vRealValue_1, 5, 13);
-                uint vIndex_2 = GekkoInstructions.extrwi(vRealValue_2, 5, 26);
+                uint vIndex_0 = (Data[i + 1] >> 4) & 0x1F;
+                uint vIndex_1 = (Data[i + 1] >> 14) & 0x1F;
+                uint vIndex_2 = (Data[i + 1] >> 9) & 0x1F;
 
                 if (vIndex_0 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_0;
@@ -81,26 +80,18 @@ namespace Animal_Crossing_Model_Editor
                     Console.WriteLine("vIndex_0: 0x" + vIndex_0.ToString("X"));
                     Console.WriteLine("vIndex_1: 0x" + vIndex_1.ToString("X"));
                     Console.WriteLine("vIndex_2: 0x" + vIndex_2.ToString("X"));
-                    Console.WriteLine("vRealValue_0: 0x" + vRealValue_0.ToString("X"));
-                    Console.WriteLine("vRealValue_1: 0x" + vRealValue_1.ToString("X"));
-                    Console.WriteLine("vRealValue_2: 0x" + vRealValue_2.ToString("X"));
                 }
 
-                Faces.Add(new Point3D[3] { Vertices[BaseIndex + (int)vIndex_0], Vertices[BaseIndex + (int)vIndex_1], Vertices[BaseIndex + (int)vIndex_2] });
+                Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_0) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_1) % Vertices.Count],
+                    Vertices[(BaseIndex + (int)vIndex_2)  % Vertices.Count] });
 
                 FacesLeft--;
                 if (FacesLeft == 0)
                     break;
 
-                uint vRealValue_3 = (Data[i + 1] >> 24) & 0xFF;
-                uint vRealValue_4 = Data[i] & 0xFF;
-                uint vRealValue_5 = (Data[i + 1] >> 16) & 0xFF;
-
-                uint vIndex_3Pre = GekkoInstructions.rlwinm(vRealValue_3, 27, 29, 31);
-
-                uint vIndex_3 = GekkoInstructions.rlwimi(vIndex_3Pre, vRealValue_4, 3, 27, 28);
-                uint vIndex_4 = GekkoInstructions.rlwinm(vRealValue_3, 0, 27, 31);
-                uint vIndex_5 = GekkoInstructions.rlwinm(vRealValue_5, 29, 27, 31);
+                uint vIndex_3 = ((((Data[i] & 0xFF) << 8) | (Data[i + 1] >> 24)) >> 5) & 0x1F;
+                uint vIndex_4 = (Data[i + 1] >> 24) & 0x1F;
+                uint vIndex_5 = (Data[i + 1] >> 19) & 0x1F;
 
                 if (vIndex_3 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_3;
@@ -116,24 +107,18 @@ namespace Animal_Crossing_Model_Editor
                     Console.WriteLine("vIndex_3: 0x" + vIndex_3.ToString("X"));
                     Console.WriteLine("vIndex_4: 0x" + vIndex_4.ToString("X"));
                     Console.WriteLine("vIndex_5: 0x" + vIndex_5.ToString("X"));
-                    Console.WriteLine("vRealValue_3: 0x" + vRealValue_3.ToString("X"));
-                    Console.WriteLine("vRealValue_4: 0x" + vRealValue_4.ToString("X"));
-                    Console.WriteLine("vRealValue_5: 0x" + vRealValue_5.ToString("X"));
                 }
 
-                Faces.Add(new Point3D[3] { Vertices[BaseIndex + (int)vIndex_3], Vertices[BaseIndex + (int)vIndex_4], Vertices[BaseIndex + (int)vIndex_5] });
+                Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_3) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_4) % Vertices.Count],
+                    Vertices[(BaseIndex + (int)vIndex_5) % Vertices.Count] });
 
                 FacesLeft--;
                 if (FacesLeft == 0)
                     break;
 
-                uint vRealValue_6 = Data[i] & 0xFF;
-                uint vRealValue_7 = Data[i];
-                uint vRealValue_8 = Data[i] & 0xFFFF;
-
-                uint vIndex_6 = GekkoInstructions.extrwi(vRealValue_6, 5, 25);
-                uint vIndex_7 = GekkoInstructions.extrwi(vRealValue_7, 5, 15);
-                uint vIndex_8 = GekkoInstructions.extrwi(vRealValue_8, 5, 20);
+                uint vIndex_6 = (Data[i] >> 2) & 0x1F;
+                uint vIndex_7 = (Data[i] >> 12) & 0x1F;
+                uint vIndex_8 = (Data[i] >> 7) & 0x1F;
 
                 if (vIndex_6 > ThisBaseIndex)
                     ThisBaseIndex = (int)vIndex_6;
@@ -149,12 +134,10 @@ namespace Animal_Crossing_Model_Editor
                     Console.WriteLine("vIndex_6: 0x" + vIndex_6.ToString("X"));
                     Console.WriteLine("vIndex_7: 0x" + vIndex_7.ToString("X"));
                     Console.WriteLine("vIndex_8: 0x" + vIndex_8.ToString("X"));
-                    Console.WriteLine("vRealValue_6: 0x" + vRealValue_6.ToString("X"));
-                    Console.WriteLine("vRealValue_7: 0x" + vRealValue_7.ToString("X"));
-                    Console.WriteLine("vRealValue_8: 0x" + vRealValue_8.ToString("X"));
                 }
 
-                Faces.Add(new Point3D[3] { Vertices[BaseIndex + (int)vIndex_6], Vertices[BaseIndex + (int)vIndex_7], Vertices[BaseIndex + (int)vIndex_8] });
+                Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_6) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_7) % Vertices.Count],
+                    Vertices[(BaseIndex + (int)vIndex_8) % Vertices.Count] });
 
                 FacesLeft--;
                 if (FacesLeft == 0)
@@ -162,13 +145,9 @@ namespace Animal_Crossing_Model_Editor
 
                 if (FirstPassFinished)
                 {
-                    uint vRealValue_9 = (Data[i] >> 16) & 0xFF;
-                    uint vRealValue_10 = (Data[i] >> 24) & 0xFF;
-                    uint vRealValue_11 = (Data[i] >> 16) & 0xFFFF;
-
-                    uint vIndex_9 = GekkoInstructions.extrwi(vRealValue_9, 5, 26);
-                    uint vIndex_10 = GekkoInstructions.extrwi(vRealValue_10, 5, 24);
-                    uint vIndex_11 = GekkoInstructions.extrwi(vRealValue_11, 5, 21);
+                    uint vIndex_9 = (Data[i] >> 17) & 0x1F;
+                    uint vIndex_10 = (Data[i] >> 27) & 0x1F;
+                    uint vIndex_11 = (Data[i] >> 22) & 0x1F;
 
                     if (vIndex_9 > ThisBaseIndex)
                         ThisBaseIndex = (int)vIndex_9;
@@ -184,12 +163,10 @@ namespace Animal_Crossing_Model_Editor
                         Console.WriteLine("vIndex_9: 0x" + vIndex_9.ToString("X"));
                         Console.WriteLine("vIndex_10: 0x" + vIndex_10.ToString("X"));
                         Console.WriteLine("vIndex_11: 0x" + vIndex_11.ToString("X"));
-                        Console.WriteLine("vRealValue_9: 0x" + vRealValue_9.ToString("X"));
-                        Console.WriteLine("vRealValue_10: 0x" + vRealValue_10.ToString("X"));
-                        Console.WriteLine("vRealValue_11: 0x" + vRealValue_11.ToString("X"));
                     }
 
-                    Faces.Add(new Point3D[3] { Vertices[BaseIndex + (int)vIndex_9], Vertices[BaseIndex + (int)vIndex_10], Vertices[BaseIndex + (int)vIndex_11] });
+                    Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_9) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_10) % Vertices.Count],
+                        Vertices[(BaseIndex + (int)vIndex_11) % Vertices.Count] });
 
                     FacesLeft--;
                     if (FacesLeft == 0)
@@ -204,14 +181,19 @@ namespace Animal_Crossing_Model_Editor
             if (FacesLeft == 0)
                 Console.WriteLine("Constructed all faces!");
 
+            Console.WriteLine("Section Information");
+            Console.WriteLine("Highest Vertex Index: 0x" + ThisBaseIndex.ToString("X"));
+            Console.WriteLine("Current Base Index: 0x" + BaseIndex.ToString("X"));
+            Console.WriteLine("===== Section End =====");
+
             if (EndIndex < Data.Length)
             {
-                Console.WriteLine("Increment BaseId: 0x" + Data[EndIndex].ToString("X8"));
-                if ((Data[EndIndex] & 0xFF000000) == 0xFD000000)
-                {
-                    BaseIndex += ThisBaseIndex;
-                    Console.WriteLine("Incremented BaseId: 0x" + BaseIndex.ToString("X"));
-                }
+                if (CurrentModelSectionIndex % 2 == 0)
+                    BaseIndex = ThisBaseIndex + 1;
+                else
+                    BaseIndex += ThisBaseIndex + 1;
+
+                //CurrentModelSectionIndex++;
                 return GetModelSections(Model_Data, Vertices, Faces, EndIndex, BaseIndex);
             }
 
