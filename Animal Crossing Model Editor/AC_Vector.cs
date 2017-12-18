@@ -18,32 +18,7 @@ namespace Animal_Crossing_Model_Editor
 
     public class AC_Vector
     {
-        public static int[] Multipliers = new int[16]
-        {
-            1, 2, 4, 8,
-            16, 1, 2, 4,
-            8, 16, 1, 0,
-            2, 4, 8, 16
-        };
-
-        public static int[] New_Multipliers = new int[16]
-        {
-            2, 4, 8, 16, // 0A 0X
-            1, 2, 4, 8,
-            16, 1, 2, 4,
-            8, 16, 1, 0
-        };
-
-        public static int[] REAL_Multipliers = new int[16]
-        {
-            4, 8, 16, 1,
-            8, 16, 1, 2,
-            16, 1, 2, 4,
-            0, 2, 4, 8
-        };
-
-        // Probably not right
-        public double Scale = 1; // Scales the model down for ToPoint3D
+        public double Scale = 0.01; // Scales the model down for ToPoint3D (1 = normal)
 
         public short X;
         public short Y;
