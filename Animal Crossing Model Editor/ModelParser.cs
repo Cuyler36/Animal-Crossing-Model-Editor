@@ -11,8 +11,9 @@ namespace Animal_Crossing_Model_Editor
     {
         private static bool IsDEBUG = System.Diagnostics.Debugger.IsAttached;
         private static int CurrentModelSectionIndex = 0;
+        private static int LastStartIndex = 0;
 
-        private static List<Point3D[]> GetModelSections(byte[] Model_Data, List<Point3D> Vertices, List<Point3D[]> Faces = null, int StartPoint = 0, int BaseIndex = 0)
+        private static List<Point3D[]> GetModelSections(byte[] Model_Data, List<Point3D> Vertices, List<Point3D[]> Faces = null, int StartPoint = 0, int NumSections = 0, int BaseIndex = 0, int AdditiveIndex = 0, int Section = 0)
         {
             CurrentModelSectionIndex++;
             if (StartPoint >= Model_Data.Length)
@@ -37,6 +38,17 @@ namespace Animal_Crossing_Model_Editor
                     StartPoint = i;
                     Found_StartPoint = true;
                     break;
+                }
+            }
+
+            if (NumSections == 0)
+            {
+                for (int i = 0; i < Data.Length; i += 2)
+                {
+                    if ((Data[i] & 0xFF000000) == 0x0A000000)
+                    {
+                        NumSections++;
+                    }
                 }
             }
 
@@ -85,8 +97,10 @@ namespace Animal_Crossing_Model_Editor
                     Console.WriteLine("vIndex_2: 0x" + vIndex_2.ToString("X"));
                 }
 
-                Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_0) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_1) % Vertices.Count],
-                    Vertices[(BaseIndex + (int)vIndex_2)  % Vertices.Count] });
+                //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_0)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_1)],
+                //    Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_2)] });
+                MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_0)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_1)],
+                    Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_2)]);
 
                 FacesLeft--;
                 if (FacesLeft == 0) // Check to see if we're done with the faces
@@ -112,8 +126,11 @@ namespace Animal_Crossing_Model_Editor
                     Console.WriteLine("vIndex_5: 0x" + vIndex_5.ToString("X"));
                 }
 
-                Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_3) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_4) % Vertices.Count],
-                    Vertices[(BaseIndex + (int)vIndex_5) % Vertices.Count] });
+                //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_3)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_4)],
+                //    Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_5)] });
+
+                MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_3)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_4)],
+                    Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_5)]);
 
                 FacesLeft--;
                 if (FacesLeft == 0)
@@ -139,8 +156,11 @@ namespace Animal_Crossing_Model_Editor
                     Console.WriteLine("vIndex_8: 0x" + vIndex_8.ToString("X"));
                 }
 
-                Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_6) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_7) % Vertices.Count],
-                    Vertices[(BaseIndex + (int)vIndex_8) % Vertices.Count] });
+                //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_6)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_7)],
+                //    Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_8)] });
+
+                MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_6)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_7)],
+                    Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_8)]);
 
                 FacesLeft--;
                 if (FacesLeft == 0)
@@ -168,8 +188,11 @@ namespace Animal_Crossing_Model_Editor
                         Console.WriteLine("vIndex_11: 0x" + vIndex_11.ToString("X"));
                     }
 
-                    Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_9) % Vertices.Count], Vertices[(BaseIndex + (int)vIndex_10) % Vertices.Count],
-                        Vertices[(BaseIndex + (int)vIndex_11) % Vertices.Count] });
+                    //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_9)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_10)],
+                    //    Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_11)] });
+
+                    MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_9)], Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_10)],
+                        Vertices[(BaseIndex + AdditiveIndex + (int)vIndex_11)]);
 
                     FacesLeft--;
                     if (FacesLeft == 0)
@@ -185,19 +208,28 @@ namespace Animal_Crossing_Model_Editor
                 Console.WriteLine("Constructed all faces!");
 
             Console.WriteLine("Section Information");
+            Console.WriteLine("Current Section: " + Section);
             Console.WriteLine("Highest Vertex Index: 0x" + ThisBaseIndex.ToString("X"));
             Console.WriteLine("Current Base Index: 0x" + BaseIndex.ToString("X"));
+            Console.WriteLine("Current Additive Index: 0x" + AdditiveIndex.ToString("X"));
+            Console.WriteLine("Current Vertex Offset Index: 0x" + (BaseIndex + AdditiveIndex).ToString("X"));
+            Console.WriteLine("Current Section Color: " + MainWindow.Model_Colors[MainWindow.Color_Index].ToString());
             Console.WriteLine("===== Section End =====");
+
+
+            MainWindow.Color_Index++;
 
             if (EndIndex < Data.Length)
             {
-                if (CurrentModelSectionIndex % 2 == 0)
-                    BaseIndex = ThisBaseIndex + 1;
-                else
+                var IncrementModulus = (NumSections % 2) + 1;
+                if (IncrementModulus == 2)
+                    IncrementModulus = 0;
+                Console.WriteLine("Increment Mod: " + IncrementModulus);
+                if (Section % 2 == IncrementModulus)
                     BaseIndex += ThisBaseIndex + 1;
 
                 //CurrentModelSectionIndex++;
-                return GetModelSections(Model_Data, Vertices, Faces, EndIndex, BaseIndex);
+                return GetModelSections(Model_Data, Vertices, Faces, EndIndex, NumSections, BaseIndex, AdditiveIndex, ++Section);
             }
 
             return Faces;
@@ -205,6 +237,7 @@ namespace Animal_Crossing_Model_Editor
 
         public static Point3D[][] ParseModel(byte[] Model_Data, List<Point3D> Vertices)
         {
+            CurrentModelSectionIndex = 0;
             return GetModelSections(Model_Data, Vertices).ToArray();
         }
     }

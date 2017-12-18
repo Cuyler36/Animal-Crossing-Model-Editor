@@ -26,9 +26,9 @@ namespace Animal_Crossing_Model_Editor
     public partial class MainWindow : Window
     {
         private static System.Windows.Forms.OpenFileDialog Model_Select_Dialog = new System.Windows.Forms.OpenFileDialog();
-        private Model3DGroup ModelGroup;
-        private List<Color> Model_Colors = ColorStructToList();
-        private int Color_Index = 10;
+        private static Model3DGroup ModelGroup;
+        public static List<Color> Model_Colors = ColorStructToList();
+        public static int Color_Index = 10;
         private int Triangle_Index = 0;
         private int Section_Index = 0;
         private List<Point3D> Points;
@@ -106,21 +106,15 @@ namespace Animal_Crossing_Model_Editor
 
         // Creates a triangle from 3 points and gives it a (probably) unique color to help determine which triangle it is.
         // NOTE: White is the color of the back of the triangle. It is possible for the front to have it, but it's unlikely. Check the debug output for #FFFFFFFF if you think it might have been chosen.
-        private void Create_Triangle_Mesh(Point3D A, Point3D B, Point3D C, int Index = 0, int A_Value = 0, int B_Value = 0, int C_Value = 0)
+        public static void Create_Triangle_Mesh(Point3D A, Point3D B, Point3D C, int Index = 0, int A_Value = 0, int B_Value = 0, int C_Value = 0)
         {
-            //if (Model_Colors[Color_Index].Equals(Colors.White))
-                //Color_Index++; // Attempt to skip any white colors for the face. Only skips the first so if there's more than one in a row it'll still be white.
+            if (Model_Colors[Color_Index].Equals(Colors.White))
+                Color_Index++; // Attempt to skip any white colors for the face. Only skips the first so if there's more than one in a row it'll still be white.
 
-            /*if (A.Equals(B) || B.Equals(C) || A.Equals(C))
-                Debug.WriteLine(string.Format("One or more points have the same value! Triangle wont be formed! Index: {0} | Point A: {1} | Point B: {2} | Point C: {3}", Index, A, B, C));
-            else
-                Debug.WriteLine(string.Format("Creating triangle #{0} Vertex A: {1} | Vertex B: {2} | Vertex C: {3} | Index A: {4} | Index B: {5} | Index C: {6}", Index, A, B, C, A_Value.ToString("X2"), B_Value.ToString("X2"), C_Value.ToString("X2")));
-                */
-            //Console.WriteLine(string.Format("Creating Triangle #{0} with Color of {1}", Index, Model_Colors[Color_Index]));
             MeshBuilder Builder = new MeshBuilder(false, false);
             Builder.AddTriangle(A, B, C);
-            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Colors.White), Material = MaterialHelper.CreateMaterial(Colors.White) });
-            //Color_Index++;
+            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Model_Colors[Color_Index]),
+                Material = MaterialHelper.CreateMaterial(Model_Colors[Color_Index]) });
         }
 
         private static List<Color> ColorStructToList()
