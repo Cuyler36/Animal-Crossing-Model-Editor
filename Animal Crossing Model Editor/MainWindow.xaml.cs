@@ -113,8 +113,8 @@ namespace Animal_Crossing_Model_Editor
 
             MeshBuilder Builder = new MeshBuilder(false, false);
             Builder.AddTriangle(A, B, C);
-            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Model_Colors[Color_Index]),
-                Material = MaterialHelper.CreateMaterial(Model_Colors[Color_Index]) });
+            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Colors.White), //Model_Colors[Color_Index]
+                Material = MaterialHelper.CreateMaterial(Colors.White) });
         }
 
         private static List<Color> ColorStructToList()

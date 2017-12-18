@@ -10,12 +10,30 @@ namespace Animal_Crossing_Model_Editor
     public static class ModelParser
     {
         private static bool IsDEBUG = System.Diagnostics.Debugger.IsAttached;
-        private static int CurrentModelSectionIndex = 0;
-        private static int LastStartIndex = 0;
+
+        private static dynamic RunModelRoutine(byte Value, int Index, byte[] Data)
+        {
+            switch (Value)
+            {
+                case 0x0A:
+                    return null;
+                default:
+                    return null;
+            }
+        }
+
+        private static int GetEndVertexIndex(int CurrentData)
+        {
+            return (CurrentData >> 12) & 0xFF;
+        }
+
+        private static int GetOtherVertexIndex(int CurrentData)
+        {
+            return (CurrentData & 0xFF) >> 1;
+        }
 
         private static List<Point3D[]> GetModelSections(byte[] Model_Data, List<Point3D> Vertices, List<Point3D[]> Faces = null, int StartPoint = 0, int NumSections = 0, int BaseIndex = 0, int AdditiveIndex = 0, int Section = 0)
         {
-            CurrentModelSectionIndex++;
             if (StartPoint >= Model_Data.Length)
                 return Faces;
 
@@ -33,7 +51,12 @@ namespace Animal_Crossing_Model_Editor
             bool Found_StartPoint = false;
             for (int i = StartPoint; i < Data.Length; i += 2)
             {
-                if ((Data[i] & 0xFF000000) == 0x0A000000)
+                if ((Data[i] & 0xFF000000) == 0x01000000) // Set vertices
+                {
+                    BaseIndex = (int)Data[i + 1];
+                    //AdditiveIndex = (int)(Data[i] >> 1) & 0xFF;
+                }
+                else if ((Data[i] & 0xFF000000) == 0x0A000000)
                 {
                     StartPoint = i;
                     Found_StartPoint = true;
@@ -69,7 +92,6 @@ namespace Animal_Crossing_Model_Editor
 
             bool FirstPassFinished = false;
             int EndIndex = StartPoint;
-            int ThisBaseIndex = 0;
 
             for (int i = StartPoint; i < Data.Length; i += 2)
             {
@@ -80,15 +102,6 @@ namespace Animal_Crossing_Model_Editor
                 uint vIndex_0 = (uint)((CurrentFaceData >> 4) & 0x1F);  // First vertex
                 uint vIndex_1 = (uint)((CurrentFaceData >> 9) & 0x1F); // Second vertex
                 uint vIndex_2 = (uint)((CurrentFaceData >> 14) & 0x1F); // Third vertex
-
-                if (vIndex_0 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_0;
-
-                if (vIndex_1 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_1;
-
-                if (vIndex_2 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_2;
 
                 if (IsDEBUG)
                 {
@@ -110,15 +123,6 @@ namespace Animal_Crossing_Model_Editor
                 uint vIndex_4 = (uint)((CurrentFaceData >> 24) & 0x1F); // Fifth vertex
                 uint vIndex_5 = (uint)((CurrentFaceData >> 29) & 0x1F); // Sixth vertex
 
-                if (vIndex_3 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_3;
-
-                if (vIndex_4 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_4;
-
-                if (vIndex_5 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_5;
-
                 if (IsDEBUG)
                 {
                     Console.WriteLine("vIndex_3: 0x" + vIndex_3.ToString("X"));
@@ -139,15 +143,6 @@ namespace Animal_Crossing_Model_Editor
                 uint vIndex_6 = (uint)((CurrentFaceData >> 34) & 0x1F); // Seventh vertex
                 uint vIndex_7 = (uint)((CurrentFaceData >> 39) & 0x1F); // Eighth vertex
                 uint vIndex_8 = (uint)((CurrentFaceData >> 44) & 0x1F); // Ninth vertex
-
-                if (vIndex_6 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_6;
-
-                if (vIndex_7 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_7;
-
-                if (vIndex_8 > ThisBaseIndex)
-                    ThisBaseIndex = (int)vIndex_8;
 
                 if (IsDEBUG)
                 {
@@ -171,15 +166,6 @@ namespace Animal_Crossing_Model_Editor
                     uint vIndex_9 = (uint)((CurrentFaceData >> 49) & 0x1F); // Tenth vertex
                     uint vIndex_10 = (uint)((CurrentFaceData >> 54) & 0x1F); // Eleventh vertex
                     uint vIndex_11 = (uint)((CurrentFaceData >> 59) & 0x1F); // Twelth vertex
-
-                    if (vIndex_9 > ThisBaseIndex)
-                        ThisBaseIndex = (int)vIndex_9;
-
-                    if (vIndex_10 > ThisBaseIndex)
-                        ThisBaseIndex = (int)vIndex_10;
-
-                    if (vIndex_11 > ThisBaseIndex)
-                        ThisBaseIndex = (int)vIndex_11;
 
                     if (IsDEBUG)
                     {
@@ -209,7 +195,6 @@ namespace Animal_Crossing_Model_Editor
 
             Console.WriteLine("Section Information");
             Console.WriteLine("Current Section: " + Section);
-            Console.WriteLine("Highest Vertex Index: 0x" + ThisBaseIndex.ToString("X"));
             Console.WriteLine("Current Base Index: 0x" + BaseIndex.ToString("X"));
             Console.WriteLine("Current Additive Index: 0x" + AdditiveIndex.ToString("X"));
             Console.WriteLine("Current Vertex Offset Index: 0x" + (BaseIndex + AdditiveIndex).ToString("X"));
@@ -221,14 +206,6 @@ namespace Animal_Crossing_Model_Editor
 
             if (EndIndex < Data.Length)
             {
-                var IncrementModulus = (NumSections % 2) + 1;
-                if (IncrementModulus == 2)
-                    IncrementModulus = 0;
-                Console.WriteLine("Increment Mod: " + IncrementModulus);
-                if (Section % 2 == IncrementModulus)
-                    BaseIndex += ThisBaseIndex + 1;
-
-                //CurrentModelSectionIndex++;
                 return GetModelSections(Model_Data, Vertices, Faces, EndIndex, NumSections, BaseIndex, AdditiveIndex, ++Section);
             }
 
@@ -237,7 +214,6 @@ namespace Animal_Crossing_Model_Editor
 
         public static Point3D[][] ParseModel(byte[] Model_Data, List<Point3D> Vertices)
         {
-            CurrentModelSectionIndex = 0;
             return GetModelSections(Model_Data, Vertices).ToArray();
         }
     }
