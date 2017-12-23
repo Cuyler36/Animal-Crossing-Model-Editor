@@ -84,11 +84,7 @@ namespace Animal_Crossing_Model_Editor
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
                     ModelGroup = new Model3DGroup();
 
-                    var Faces = ModelParser.ParseModel(Model_Data, Points);
-                    foreach (Point3D[] Face in Faces)
-                    {
-                        Create_Triangle_Mesh(Face[0], Face[1], Face[2], 0, 0, 0, 0);
-                    }
+                    ModelParser.ParseModel(Model_Data, Points);
 
                     ModelVisualizer.Content = ModelGroup;
                     viewPort3d.ZoomExtents();
@@ -146,11 +142,7 @@ namespace Animal_Crossing_Model_Editor
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
                     Section_Index = 0;
 
-                    var Faces = ModelParser.ParseModel(Model_Data, Points);
-                    foreach (Point3D[] Face in Faces)
-                    {
-                        Create_Triangle_Mesh(Face[0], Face[1], Face[2], 0, 0, 0, 0);
-                    }
+                    ModelParser.ParseModel(Model_Data, Points);
 
                     ModelVisualizer.Content = ModelGroup;
                     viewPort3d.ZoomExtents();
