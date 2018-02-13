@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 using System.Windows.Media.Media3D;
 
 namespace Animal_Crossing_Model_Editor
@@ -14,39 +10,108 @@ namespace Animal_Crossing_Model_Editor
         private static List<Point3D[]> Faces;
         private static int BaseIndex = 0;
 
-        private static int RunModelRoutine(byte Value, int Index, byte[] Data)
+        private static int RunModelRoutine(byte uCode, int Index, byte[] Data)
         {
-            switch (Value)
+            switch (uCode)
             {
+                case 0x00:
+                    return NoOp();
                 case 0x01:
                     return SetBaseVertex(Data, Index);
+                case 0x02:
+                    return ModifyVertex(Data, Index);
                 case 0x0A:
                     return DrawFaces(Data, Index / 4) - Index;
+                case 0xD7:
+                    return SetTextureInfo(Data, Index);
+                case 0xD9:
+                    return SetGeometryMode(Data, Index);
+                case 0xDF:
+                    return EndDisplayList();
+                case 0xE2:
+                    return SetOtherModeLow(Data, Index);
+                case 0xFA:
+                    return SetPrimativeColor(Data, Index);
+                case 0xFC:
+                    return SetColorCombinerMode(Data, Index);
                 case 0xFD:
-                    return TextureFaceGroup(); // Technically the one responsible for drawing it is 0xD2 (dl_G_SETTILE_DOLPHIN)
+                    return SetTextureImage(Data, Index); // Technically the one responsible for drawing it is 0xD2 (dl_G_SETTILE_DOLPHIN)
                 default:
                     return 8;
             }
         }
 
-        private static int GetEndVertexIndex(int CurrentData)
-        {
-            return (CurrentData >> 12) & 0xFF;
-        }
+        private static int NoOp() => 8;
 
-        private static int GetOtherVertexIndex(int CurrentData)
+        private static int ModifyVertex(byte[] Data, int Index)
         {
-            return (CurrentData & 0xFF) >> 1;
+            int VertexToModify = Data[Index + 1];
+            int VertexBufferIndex = ((Data[Index + 2] << 8) | Data[Index + 3]) / 2;
+            int NewValue = (Data[Index + 4] << 24) | (Data[Index + 5] << 16) | (Data[Index + 6] << 8) | Data[Index + 7];
+
+            return 8;
         }
 
         private static int SetBaseVertex(byte[] Data, int Index)
         {
+            int NumVertices = ((Data[Index + 1] & 0x0F) << 4) | ((Data[Index + 2] & 0xF0) >> 4);
+            int VertexBufferIndex = Data[Index + 3]; // To Decode it: (Data[Index +3] >> 1) - NumVertices;
             BaseIndex = (Data[Index + 4] << 24) | (Data[Index + 5] << 16) | (Data[Index + 6] << 8) | Data[Index + 7];
             return 8;
         }
 
-        private static int TextureFaceGroup()
+        private static int SetTextureInfo(byte[] Data, int Index)
         {
+            int MaximumMipmapLevels = (Data[Index + 2] >> 3) & 0x07; // Excludes the actual texture
+            int TileDescriptorNumber = Data[Index + 2] & 0x07;
+            int Enabled = Data[Index + 3]; // "on" or "off"
+            int XScaleFactor = (Data[Index + 4] << 8) | Data[Index + 5];
+            int YScaleFactor = (Data[Index + 6] << 8) | Data[Index + 7];
+
+            return 8;
+        }
+
+        private static int SetGeometryMode(byte[] Data, int Index)
+        {
+            int ClearBits = ~((Data[Index + 1] << 16) | (Data[Index + 2] << 8) | Data[Index + 3]);
+            int SetBits = (Data[Index + 4] << 24) | (Data[Index + 5] << 16) | (Data[Index + 6] << 8) | Data[Index + 7];
+
+            return 8;
+        }
+
+        private static int EndDisplayList() => 8;
+
+        private static int SetOtherModeLow(byte[] Data, int Index)
+        {
+            int Length = Data[Index + 3] + 1;
+            int Shift = 32 - Length - Data[Index + 2];
+            int Bits = (Data[Index + 4] << 24) | (Data[Index + 5] << 16) | (Data[Index + 6] << 8) | Data[Index + 7];
+
+            return 8;
+        }
+
+        private static int SetPrimativeColor(byte[] Data, int Index)
+        {
+            int MinimumLevelOfDetail = Data[Index + 2];
+            int LevelOfDetailFraction = Data[Index + 3];
+            int Color = (Data[Index + 7] << 24) | (Data[Index + 4] << 16) | (Data[Index + 5] << 8) | Data[Index + 6]; // R->G->B->A
+
+            return 8;
+        }
+
+        private static int SetColorCombinerMode(byte[] Data, int Index)
+        {
+            // a0, c0, Aa0, Ac0, a1, c1, b0, b1, Aa1, Ac1, d0, Ab0, Ad0, d1, Ab1, Ad1
+            return 8;
+        }
+
+        private static int SetTextureImage(byte[] Data, int Index)
+        {
+            int TextureFormat = (Data[Index + 1] & 0xE0) >> 5;
+            int BitsPerPixel = (Data[Index + 1] & 0x18) >> 3;
+            int Width = (((Data[Index + 2] & 0x0F) << 12) | Data[Index + 3]) + 1;
+            int ImageAddress = (Data[Index + 4] << 24) | (Data[Index + 5] << 16) | (Data[Index + 6] << 8) | Data[Index + 7];
+
             return 8;
         }
 
@@ -86,8 +151,6 @@ namespace Animal_Crossing_Model_Editor
                 uint vIndex_1 = (uint)((CurrentFaceData >> 9) & 0x1F); // Second vertex
                 uint vIndex_2 = (uint)((CurrentFaceData >> 14) & 0x1F); // Third vertex
 
-                //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_0)], Vertices[(BaseIndex + (int)vIndex_1)],
-                //    Vertices[(BaseIndex + (int)vIndex_2)] });
                 MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_0)], Vertices[(BaseIndex + (int)vIndex_1)],
                     Vertices[(BaseIndex + (int)vIndex_2)]);
 
@@ -99,9 +162,6 @@ namespace Animal_Crossing_Model_Editor
                 uint vIndex_4 = (uint)((CurrentFaceData >> 24) & 0x1F); // Fifth vertex
                 uint vIndex_5 = (uint)((CurrentFaceData >> 29) & 0x1F); // Sixth vertex
 
-                //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_3)], Vertices[(BaseIndex + (int)vIndex_4)],
-                //    Vertices[(BaseIndex + (int)vIndex_5)] });
-
                 MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_3)], Vertices[(BaseIndex + (int)vIndex_4)],
                     Vertices[(BaseIndex + (int)vIndex_5)]);
 
@@ -112,9 +172,6 @@ namespace Animal_Crossing_Model_Editor
                 uint vIndex_6 = (uint)((CurrentFaceData >> 34) & 0x1F); // Seventh vertex
                 uint vIndex_7 = (uint)((CurrentFaceData >> 39) & 0x1F); // Eighth vertex
                 uint vIndex_8 = (uint)((CurrentFaceData >> 44) & 0x1F); // Ninth vertex
-
-                //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_6)], Vertices[(BaseIndex + (int)vIndex_7)],
-                //    Vertices[(BaseIndex + (int)vIndex_8)] });
 
                 MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_6)], Vertices[(BaseIndex + (int)vIndex_7)],
                     Vertices[(BaseIndex + (int)vIndex_8)]);
@@ -128,9 +185,6 @@ namespace Animal_Crossing_Model_Editor
                     uint vIndex_9 = (uint)((CurrentFaceData >> 49) & 0x1F); // Tenth vertex
                     uint vIndex_10 = (uint)((CurrentFaceData >> 54) & 0x1F); // Eleventh vertex
                     uint vIndex_11 = (uint)((CurrentFaceData >> 59) & 0x1F); // Twelth vertex
-
-                    //Faces.Add(new Point3D[3] { Vertices[(BaseIndex + (int)vIndex_9)], Vertices[(BaseIndex + (int)vIndex_10)],
-                    //    Vertices[(BaseIndex + (int)vIndex_11)] });
 
                     MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_9)], Vertices[(BaseIndex + (int)vIndex_10)],
                         Vertices[(BaseIndex + (int)vIndex_11)]);

@@ -1,20 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using System.IO;
 using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
-using System.Diagnostics;
 using System.Reflection;
 using System.ComponentModel;
 
@@ -29,10 +19,7 @@ namespace Animal_Crossing_Model_Editor
         private static Model3DGroup ModelGroup;
         public static List<Color> Model_Colors = ColorStructToList();
         public static int Color_Index = 10;
-        private int Triangle_Index = 0;
-        private int Section_Index = 0;
         private List<Point3D> Points;
-        private int Last_End_Vertex = 0;
         private BackgroundWorker Parser_Worker = new BackgroundWorker();
 
         public MainWindow()
@@ -43,10 +30,6 @@ namespace Animal_Crossing_Model_Editor
         private void LoadModel(string Model_Location, bool New_File = true)
         {
             byte[] Data_Array = File.ReadAllBytes(Model_Location);
-            Last_End_Vertex = 0;
-            Section_Index = 0;
-            Triangle_Index = 0;
-            
             short[] Data = new short[Data_Array.Length / 2];
 
             for (int i = 0; i < Data.Length; i++)
@@ -140,7 +123,6 @@ namespace Animal_Crossing_Model_Editor
                 if (File.Exists(Model_Path))
                 {
                     byte[] Model_Data = File.ReadAllBytes(Model_Path);
-                    Section_Index = 0;
 
                     ModelParser.ParseModel(Model_Data, Points);
 
