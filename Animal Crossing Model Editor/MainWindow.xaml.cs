@@ -19,6 +19,7 @@ namespace Animal_Crossing_Model_Editor
         private static Model3DGroup ModelGroup;
         public static List<Color> Model_Colors = ColorStructToList();
         public static int Color_Index = 10;
+        public static Color PrimitiveColor = Colors.White;
         private List<Point3D> Points;
         private BackgroundWorker Parser_Worker = new BackgroundWorker();
 
@@ -92,8 +93,8 @@ namespace Animal_Crossing_Model_Editor
 
             MeshBuilder Builder = new MeshBuilder(false, false);
             Builder.AddTriangle(A, B, C);
-            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(Colors.White), //Model_Colors[Color_Index]
-                Material = MaterialHelper.CreateMaterial(Colors.White) });
+            ModelGroup.Children.Add(new GeometryModel3D { Geometry = Builder.ToMesh(true), BackMaterial = MaterialHelper.CreateMaterial(PrimitiveColor), //Model_Colors[Color_Index]
+                Material = MaterialHelper.CreateMaterial(PrimitiveColor) });
         }
 
         private static List<Color> ColorStructToList()

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Windows.Media;
 using System.Windows.Media.Media3D;
 
 namespace Animal_Crossing_Model_Editor
@@ -21,7 +22,7 @@ namespace Animal_Crossing_Model_Editor
                 case 0x02:
                     return ModifyVertex(Data, Index);
                 case 0x0A:
-                    return DrawFaces(Data, Index / 4) - Index;
+                    return DrawTriangleIndependent(Data, Index / 4) - Index;
                 case 0xD7:
                     return SetTextureInfo(Data, Index);
                 case 0xD9:
@@ -94,7 +95,9 @@ namespace Animal_Crossing_Model_Editor
         {
             int MinimumLevelOfDetail = Data[Index + 2];
             int LevelOfDetailFraction = Data[Index + 3];
-            int Color = (Data[Index + 7] << 24) | (Data[Index + 4] << 16) | (Data[Index + 5] << 8) | Data[Index + 6]; // R->G->B->A
+            int PrimitiveColor = (Data[Index + 7] << 24) | (Data[Index + 4] << 16) | (Data[Index + 5] << 8) | Data[Index + 6]; // R->G->B->A
+
+            MainWindow.PrimitiveColor = Color.FromArgb(Data[Index + 7], Data[Index + 4], Data[Index + 5], Data[Index + 6]);
 
             return 8;
         }
@@ -115,7 +118,7 @@ namespace Animal_Crossing_Model_Editor
             return 8;
         }
 
-        private static int DrawFaces(byte[] Model_Data, int StartPoint = 0)
+        private static int DrawTriangleIndependent(byte[] Model_Data, int StartPoint = 0)
         {
             if (Vertices == null)
                 return 0;
