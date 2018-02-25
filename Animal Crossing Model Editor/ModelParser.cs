@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 
@@ -6,9 +7,10 @@ namespace Animal_Crossing_Model_Editor
 {
     public static class ModelParser
     {
-        private static bool IsDEBUG = System.Diagnostics.Debugger.IsAttached;
+        private static bool IsDEBUG = Debugger.IsAttached;
         private static List<Point3D> Vertices;
         private static List<Point3D[]> Faces;
+        private static MainWindow MainWindowReference;
         private static int BaseIndex = 0;
 
         private static int RunModelRoutine(byte uCode, int Index, byte[] Data)
@@ -18,7 +20,7 @@ namespace Animal_Crossing_Model_Editor
                 case 0x00:
                     return NoOp();
                 case 0x01:
-                    return SetBaseVertex(Data, Index);
+                    return SetVertices(Data, Index);
                 case 0x02:
                     return ModifyVertex(Data, Index);
                 case 0x09:
@@ -55,11 +57,17 @@ namespace Animal_Crossing_Model_Editor
             return 8;
         }
 
-        private static int SetBaseVertex(byte[] Data, int Index)
+        private static int SetVertices(byte[] Data, int Index)
         {
-            int NumVertices = ((Data[Index + 1] & 0x0F) << 4) | ((Data[Index + 2] & 0xF0) >> 4);
-            int VertexBufferIndex = Data[Index + 3]; // To Decode it: (Data[Index +3] >> 1) - NumVertices;
-            BaseIndex = (Data[Index + 4] << 24) | (Data[Index + 5] << 16) | (Data[Index + 6] << 8) | Data[Index + 7];
+            int NumVertices = ((Data[Index + 1] & 0x0F) << 4) | ((Data[Index + 2] & 0xF0) >> 4); // The total number of vertices loaded (past the specified start vertex)
+            int VertexBufferIndex = Data[Index + 3]; // To Decode it: (Data[Index +3] >> 1) - NumVertices; (This is useless for decoding)
+            BaseIndex = (Data[Index + 4] << 24) | (Data[Index + 5] << 16) | (Data[Index + 6] << 8) | Data[Index + 7]; // The offset into the vertex table of the start vertex
+            return 8;
+        }
+
+        private static int SetTileDolphin(byte[] Data, int Index)
+        {
+            int Unknown1 = Data[Index + 1] & 0x07;
             return 8;
         }
 
@@ -99,7 +107,8 @@ namespace Animal_Crossing_Model_Editor
             int LevelOfDetailFraction = Data[Index + 3];
             int PrimitiveColor = (Data[Index + 7] << 24) | (Data[Index + 4] << 16) | (Data[Index + 5] << 8) | Data[Index + 6]; // R->G->B->A
 
-            MainWindow.PrimitiveColor = Color.FromArgb(Data[Index + 7], Data[Index + 4], Data[Index + 5], Data[Index + 6]);
+            MainWindowReference.PrimitiveColor = Color.FromArgb(Data[Index + 7], Data[Index + 4], Data[Index + 5], Data[Index + 6]);
+            Debug.WriteLine("Set Primitive Color to: 0x" + PrimitiveColor.ToString("X8"));
 
             return 8;
         }
@@ -146,40 +155,37 @@ namespace Animal_Crossing_Model_Editor
             bool FirstPassFinished = false;
             int EndIndex = StartPoint;
 
+            // Create a new mesh builder for this section
+            MainWindowReference.CreateNewMeshBuilder();
+
             for (int i = StartPoint; i < Data.Length; i += 2)
             {
                 EndIndex = i + 2;
 
                 ulong CurrentFaceData = ((ulong)Data[i] << 32) | Data[i + 1]; // Combine the two sections into one 64 bit datatype
 
-                uint vIndex_0 = (uint)((CurrentFaceData >> 4) & 0x1F);  // First vertex
-                uint vIndex_1 = (uint)((CurrentFaceData >> 9) & 0x1F); // Second vertex
-                uint vIndex_2 = (uint)((CurrentFaceData >> 14) & 0x1F); // Third vertex
+                GetFaceVertexSet(CurrentFaceData, 0, out uint vIndex_0, out uint vIndex_1, out uint vIndex_2);
 
-                MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_0)], Vertices[(BaseIndex + (int)vIndex_1)],
-                    Vertices[(BaseIndex + (int)vIndex_2)]);
+                MainWindowReference.CreateTriangleFace(Vertices[(BaseIndex + (int)vIndex_0)], Vertices[(BaseIndex + (int)vIndex_1)],
+                    Vertices[(BaseIndex + (int)vIndex_2)], BaseIndex + (int)vIndex_0, BaseIndex + (int)vIndex_1, BaseIndex + (int)vIndex_2);
 
                 FacesLeft--;
                 if (FacesLeft == 0) // Check to see if we're done with the faces
                     break;
 
-                uint vIndex_3 = (uint)((CurrentFaceData >> 19) & 0x1F); // Fourth vertex
-                uint vIndex_4 = (uint)((CurrentFaceData >> 24) & 0x1F); // Fifth vertex
-                uint vIndex_5 = (uint)((CurrentFaceData >> 29) & 0x1F); // Sixth vertex
+                GetFaceVertexSet(CurrentFaceData, 1, out uint vIndex_3, out uint vIndex_4, out uint vIndex_5);
 
-                MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_3)], Vertices[(BaseIndex + (int)vIndex_4)],
-                    Vertices[(BaseIndex + (int)vIndex_5)]);
+                MainWindowReference.CreateTriangleFace(Vertices[(BaseIndex + (int)vIndex_3)], Vertices[(BaseIndex + (int)vIndex_4)],
+                    Vertices[(BaseIndex + (int)vIndex_5)], BaseIndex + (int)vIndex_3, BaseIndex + (int)vIndex_4, BaseIndex + (int)vIndex_5);
 
                 FacesLeft--;
                 if (FacesLeft == 0)
                     break;
 
-                uint vIndex_6 = (uint)((CurrentFaceData >> 34) & 0x1F); // Seventh vertex
-                uint vIndex_7 = (uint)((CurrentFaceData >> 39) & 0x1F); // Eighth vertex
-                uint vIndex_8 = (uint)((CurrentFaceData >> 44) & 0x1F); // Ninth vertex
+                GetFaceVertexSet(CurrentFaceData, 2, out uint vIndex_6, out uint vIndex_7, out uint vIndex_8);
 
-                MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_6)], Vertices[(BaseIndex + (int)vIndex_7)],
-                    Vertices[(BaseIndex + (int)vIndex_8)]);
+                MainWindowReference.CreateTriangleFace(Vertices[(BaseIndex + (int)vIndex_6)], Vertices[(BaseIndex + (int)vIndex_7)],
+                    Vertices[(BaseIndex + (int)vIndex_8)], BaseIndex + (int)vIndex_6, BaseIndex + (int)vIndex_7, BaseIndex + (int)vIndex_8);
 
                 FacesLeft--;
                 if (FacesLeft == 0)
@@ -187,12 +193,10 @@ namespace Animal_Crossing_Model_Editor
 
                 if (FirstPassFinished) // Only do this after the first 64 bit section (since the first byte is the section identifer (0x0A) and the second byte is the number of faces * 2 - 1)
                 {
-                    uint vIndex_9 = (uint)((CurrentFaceData >> 49) & 0x1F); // Tenth vertex
-                    uint vIndex_10 = (uint)((CurrentFaceData >> 54) & 0x1F); // Eleventh vertex
-                    uint vIndex_11 = (uint)((CurrentFaceData >> 59) & 0x1F); // Twelth vertex
+                    GetFaceVertexSet(CurrentFaceData, 3, out uint vIndex_9, out uint vIndex_10, out uint vIndex_11);
 
-                    MainWindow.Create_Triangle_Mesh(Vertices[(BaseIndex + (int)vIndex_9)], Vertices[(BaseIndex + (int)vIndex_10)],
-                        Vertices[(BaseIndex + (int)vIndex_11)]);
+                    MainWindowReference.CreateTriangleFace(Vertices[(BaseIndex + (int)vIndex_9)], Vertices[(BaseIndex + (int)vIndex_10)],
+                        Vertices[(BaseIndex + (int)vIndex_11)], BaseIndex + (int)vIndex_9, BaseIndex + (int)vIndex_10, BaseIndex + (int)vIndex_11);
 
                     FacesLeft--;
                     if (FacesLeft == 0)
@@ -204,6 +208,9 @@ namespace Animal_Crossing_Model_Editor
                 }
             }
 
+            // Create the new model
+            MainWindowReference.CreateCurrentModel();
+
             return EndIndex * 4;
         }
 
@@ -212,8 +219,18 @@ namespace Animal_Crossing_Model_Editor
             return DrawTriangle(Model_Data, StartPoint);
         }
 
-        public static void ParseModel(byte[] Model_Data, List<Point3D> VertexList)
+        // Non-Emulated code
+        private static void GetFaceVertexSet(ulong Data, int Index, out uint VertexA, out uint VertexB, out uint VertexC)
         {
+            int BaseShiftCount = 4 + Index * 15;
+            VertexA = (uint)(Data >> BaseShiftCount) & 0x1F;
+            VertexB = (uint)(Data >> (BaseShiftCount + 5)) & 0x1F;
+            VertexC = (uint)(Data >> (BaseShiftCount + 10)) & 0x1F;
+        }
+
+        public static void ParseModel(byte[] Model_Data, List<Point3D> VertexList, MainWindow mainWindowReference)
+        {
+            MainWindowReference = mainWindowReference;
             Vertices = VertexList;
             for (int i = 0; i < Model_Data.Length; i += 8)
             {

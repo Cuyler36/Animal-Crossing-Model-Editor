@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Animal_Crossing_Model_Editor"
         xmlns:helix="http://helix-toolkit.org/wpf"
+        xmlns:hsdx="http://helix-toolkit.org/wpf/SharpDX"
         mc:Ignorable="d"
         Title="Animal Crossing Model Editor" Height="500" Width="700">
     <Grid>
@@ -25,12 +26,28 @@
                 <MenuItem Header="_Save"/>
                 <MenuItem Header="_Save As"/>
             </MenuItem>
+            <MenuItem Header="_Rotate">
+                <MenuItem Header="X-Axis by 90 Degrees" Click="RotateXClick"/>
+                <MenuItem Header="Y-Axis by 90 Degrees" Click="RotateYClick"/>
+                <MenuItem Header="Z-Axis by 90 Degrees" Click="RotateZClick"/>
+            </MenuItem>
         </Menu>
-        <helix:HelixViewport3D x:Name="viewPort3d" ZoomExtentsWhenLoaded="true" Grid.Column="0" Grid.Row="1" Background="#FF3E3E3E">
+        <helix:HelixViewport3D x:Name="viewPort3d" ZoomExtentsWhenLoaded="true" Grid.Column="0" Grid.Row="1" Background="#FF3E3E3E" MouseMove="viewPort3d_MouseMove">
             <ModelVisual3D x:Name="ModelVisualizer"/>
-            <!--<helix:PointsVisual3D x:Name="ModelPoints"/> -->
+            <helix:PointsVisual3D x:Name="ModelPoints"/>
             <helix:DefaultLights/>
         </helix:HelixViewport3D>
-        <TreeView x:Name="VertexTreeView" Grid.Column="1" Grid.Row="1" Background="#FF3E3E3E" Foreground="White"/>
+        <TreeView x:Name="FaceTreeView" Grid.Column="1" Grid.Row="1" Background="#FF3E3E3E" Foreground="White">
+            <TreeView.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
+                      Color="Gray" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"
+                      Color="White" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}"
+                      Color="Gray" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}"
+                      Color="White" />
+            </TreeView.Resources>
+        </TreeView>
     </Grid>
 </Window>
