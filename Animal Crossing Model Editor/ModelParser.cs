@@ -21,6 +21,8 @@ namespace Animal_Crossing_Model_Editor
                     return SetBaseVertex(Data, Index);
                 case 0x02:
                     return ModifyVertex(Data, Index);
+                case 0x09:
+                    return DrawTriangle(Data, Index / 4) - Index;
                 case 0x0A:
                     return DrawTriangleIndependent(Data, Index / 4) - Index;
                 case 0xD7:
@@ -118,7 +120,7 @@ namespace Animal_Crossing_Model_Editor
             return 8;
         }
 
-        private static int DrawTriangleIndependent(byte[] Model_Data, int StartPoint = 0)
+        private static int DrawTriangle(byte[] Model_Data, int StartPoint = 0)
         {
             if (Vertices == null)
                 return 0;
@@ -203,6 +205,11 @@ namespace Animal_Crossing_Model_Editor
             }
 
             return EndIndex * 4;
+        }
+
+        private static int DrawTriangleIndependent(byte[] Model_Data, int StartPoint = 0)
+        {
+            return DrawTriangle(Model_Data, StartPoint);
         }
 
         public static void ParseModel(byte[] Model_Data, List<Point3D> VertexList)
