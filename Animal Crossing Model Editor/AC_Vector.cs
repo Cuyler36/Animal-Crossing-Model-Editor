@@ -4,7 +4,7 @@ namespace Animal_Crossing_Model_Editor
 {
     public class AC_Vector
     {
-        public double Scale = 0.01; // Scales the model down for ToPoint3D (1 = normal)
+        public double Scale = 0.0001; // Scales the model down for ToPoint3D (1 = normal)
 
         public short X;
         public short Y;
@@ -23,7 +23,7 @@ namespace Animal_Crossing_Model_Editor
 
         public AC_Vector(short[] Data)
         {
-            X = Data[0];
+            X = (short)-Data[0];
             Y = Data[2];
             Z = Data[1];
 

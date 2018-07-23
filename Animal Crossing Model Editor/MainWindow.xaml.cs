@@ -8,6 +8,8 @@ using HelixToolkit.Wpf;
 using System.Reflection;
 using System.ComponentModel;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
+using System;
 
 namespace Animal_Crossing_Model_Editor
 {
@@ -19,6 +21,7 @@ namespace Animal_Crossing_Model_Editor
         private static System.Windows.Forms.OpenFileDialog Model_Select_Dialog = new System.Windows.Forms.OpenFileDialog();
         private static Model3DGroup ModelGroup;
         public Color PrimitiveColor = Colors.White;
+        public BitmapSource Texture;
         private List<Point3D> Points;
         private List<PointsVisual3D> PointsVisual3DList;
         private List<GeometryModel3D> Model3DList;
@@ -29,43 +32,65 @@ namespace Animal_Crossing_Model_Editor
         private int FaceIndex = 0;
         private Material SelectedModel3DMaterial = MaterialHelper.CreateMaterial(Colors.LightBlue);
         private MeshBuilder Builder;
+        private FileStream RAMStream;
+        private BinaryReader RAMReader;
+        public int TextureIndex = 0;
+        public List<KeyValuePair<string, BitmapSource>> TextureList = new List<KeyValuePair<string, BitmapSource>>();
 
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        private void LoadModel(string Model_Location, bool New_File = true)
+        private void LoadModelFromRAMDump(string Dump_Location)
         {
-            LastPoint3D = null;
-            LastModel3D = null;
-            FaceIndex = 0;
-
-            FaceTreeView.Items.Clear();
-
-            if (PointsVisual3DList != null)
+            if (File.Exists(Dump_Location))
             {
-                foreach (PointsVisual3D p in PointsVisual3DList)
+                var DLAddressBox = new DrawListAddressBox();
+                if (DLAddressBox.ShowDialog().Value)
                 {
-                    if (viewPort3d.Children.Contains(p))
+                    if (RAMReader != null)
                     {
-                        viewPort3d.Children.Remove(p);
+                        RAMReader.Close();
+                        RAMStream.Dispose();
+                        RAMReader.Dispose();
                     }
+
+                    PointsVisual3DList = new List<PointsVisual3D>();
+                    Model3DList = new List<GeometryModel3D>();
+                    uint DrawListModelAddress = DLAddressBox.Address & ~0x80000000;
+                    var FStream = new FileStream(Dump_Location, FileMode.Open);
+                    var Reader = new BinaryReader(FStream);
+
+                    RAMStream = FStream;
+                    RAMReader = Reader;
+
+                    Reader.BaseStream.Seek(DrawListModelAddress, SeekOrigin.Begin);
+
+                    bool SetModel = ModelGroup == null;
+
+                    if (ModelGroup == null)
+                        ModelGroup = new Model3DGroup();
+                    else
+                        ModelGroup.Children.Clear();
+
+                    ModelParser.ParseModel(Reader, this);
+
+                    if (SetModel)
+                        ModelVisualizer.Content = ModelGroup;
+                    viewPort3d.ZoomExtents();
                 }
             }
+        }
 
-            PointsVisual3DList = new List<PointsVisual3D>();
-            Model3DList = new List<GeometryModel3D>();
-
-            byte[] Data_Array = File.ReadAllBytes(Model_Location);
+        public Tuple<List<Point3D>, List<AC_Vector>> LoadVertices(byte[] Data_Array)
+        {
             short[] Data = new short[Data_Array.Length / 2];
-
             for (int i = 0; i < Data.Length; i++)
             {
                 Data[i] = (short)((Data_Array[i * 2] << 8) + Data_Array[i * 2 + 1]);
             }
 
-            // Convert to AC_Vectors and Point3Ds
             AC_Vector[] Vectors = new AC_Vector[Data.Length / 8]; // 8 shorts per Vector
             Points = new List<Point3D>();
             List<Point3D> Skipped_List = new List<Point3D>();
@@ -85,6 +110,42 @@ namespace Animal_Crossing_Model_Editor
                 PointsVisual3DList.Add(point);
                 viewPort3d.Children.Add(point);*/
             }
+
+            return new Tuple<List<Point3D>, List<AC_Vector>>(Points, Vectors.ToList());
+        }
+
+        private void LoadModel(string Model_Location, bool New_File = true)
+        {
+            LastPoint3D = null;
+            LastModel3D = null;
+            FaceIndex = 0;
+
+            if (RAMReader != null)
+            {
+                RAMReader.Close();
+                RAMReader = null;
+            }
+
+            FaceTreeView.Items.Clear();
+
+            if (PointsVisual3DList != null)
+            {
+                foreach (PointsVisual3D p in PointsVisual3DList)
+                {
+                    if (viewPort3d.Children.Contains(p))
+                    {
+                        viewPort3d.Children.Remove(p);
+                    }
+                }
+            }
+
+            PointsVisual3DList = new List<PointsVisual3D>();
+            Model3DList = new List<GeometryModel3D>();
+
+            byte[] Data_Array = File.ReadAllBytes(Model_Location);
+            
+            // Convert to AC_Vectors and Point3Ds
+            LoadVertices(Data_Array);
 
             /*ModelPoints.Color = Colors.White;
             ModelPoints.Points = PointCollection;
@@ -183,25 +244,56 @@ namespace Animal_Crossing_Model_Editor
 
         public void CreateNewMeshBuilder()
         {
-            Builder = new MeshBuilder(false, false);
+            Builder = new MeshBuilder();
         }
 
         // Creates a triangle mesh from 3 points.
         // TODO: Make a new ModelGroup3D for each face so it can be highlighted
-        public void CreateTriangleFace(Point3D vertexA, Point3D vertexB, Point3D vertexC, int indexA, int indexB, int indexC)
+        public void CreateTriangleFace(Point3D vertexA, Point3D vertexB, Point3D vertexC, int indexA, int indexB, int indexC, Tuple<short[], short[]> texCoords)
         {
-            Builder.AddTriangle(vertexA, vertexB, vertexC);
+            short[] texCoordX = texCoords.Item1;
+            short[] texCoordY = texCoords.Item2;
+            double Scale = 0.03125; //1 / (Texture == null ? 1 : Texture.PixelWidth); // 0.0312;
+            Builder.AddTriangle(vertexA, vertexB, vertexC,
+                new Point(texCoordX[0] * Scale, texCoordY[0] * Scale),
+                new Point(texCoordX[1] * Scale, texCoordY[1] * Scale),
+                new Point(texCoordX[2] * Scale, texCoordY[2] * Scale));
             //AddFaceTreeViewItem(new int[3] { indexA, indexB, indexC });
         }
 
         public void CreateCurrentModel()
         {
+            var ImgBrush = new ImageBrush(Texture)
+            {
+                TileMode = TileMode.Tile,
+                Stretch = Stretch.None,
+                ViewportUnits = BrushMappingMode.Absolute,
+                ViewboxUnits = BrushMappingMode.Absolute,
+                AlignmentX = AlignmentX.Left,
+                AlignmentY = AlignmentY.Top,
+            };
+
+            if (Texture != null)
+            {
+                ImgBrush.Viewport = new Rect(0, 0, Texture.PixelWidth, Texture.PixelHeight);
+                ImgBrush.Viewbox = new Rect(0, 0, Texture.PixelWidth, Texture.PixelHeight);
+            }
+
             var Model = new GeometryModel3D
             {
                 Geometry = Builder.ToMesh(true),
-                BackMaterial = MaterialHelper.CreateMaterial(PrimitiveColor),
-                Material = MaterialHelper.CreateMaterial(PrimitiveColor)
+                //BackMaterial = MaterialHelper.CreateMaterial(PrimitiveColor)
             };
+
+            Model.Material = Texture != null ? new DiffuseMaterial(ImgBrush) : MaterialHelper.CreateMaterial(PrimitiveColor);
+            Model.Material.SetName("Texture_" + TextureIndex);
+
+            TextureIndex++;
+            if (Texture != null)
+            {
+                TextureList.Add(new KeyValuePair<string, BitmapSource>("mat" + TextureIndex, Texture));
+            }
+
 
             ModelGroup.Children.Add(Model);
             Model3DList.Add(Model);
@@ -211,31 +303,60 @@ namespace Animal_Crossing_Model_Editor
         {
             if (Model_Select_Dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                LoadModel(Model_Select_Dialog.FileName);
+                FileInfo ModelFileInfo = new FileInfo(Model_Select_Dialog.FileName);
+                if (ModelFileInfo.Length == 0x01800000)
+                {
+                    LoadModelFromRAMDump(Model_Select_Dialog.FileName);
+                }
+                else
+                {
+                    LoadModel(Model_Select_Dialog.FileName);
+                }
             }
         }
 
         private void Add_Model_Click(object sender, RoutedEventArgs e)
         {
-            if (ModelGroup != null && Model_Select_Dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            if (ModelGroup != null)
             {
-                string File_Name = Model_Select_Dialog.FileName;
-                if (!File_Name.ToLower().Contains("model"))
-                    return;
-
-                string Model_Path = File_Name;
-                if (File.Exists(Model_Path))
+                if (RAMReader == null)
                 {
-                    byte[] Model_Data = File.ReadAllBytes(Model_Path);
+                    if (Model_Select_Dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                    {
+                        string File_Name = Model_Select_Dialog.FileName;
+                        if (!File_Name.ToLower().Contains("model"))
+                            return;
 
-                    ModelParser.ParseModel(Model_Data, Points, this);
+                        string Model_Path = File_Name;
+                        if (File.Exists(Model_Path))
+                        {
+                            byte[] Model_Data = File.ReadAllBytes(Model_Path);
 
-                    ModelVisualizer.Content = ModelGroup;
-                    viewPort3d.ZoomExtents();
+                            ModelParser.ParseModel(Model_Data, Points, this);
+
+                            ModelVisualizer.Content = ModelGroup;
+                            viewPort3d.ZoomExtents();
+                        }
+                        else
+                        {
+                            MessageBox.Show(Model_Path);
+                        }
+                    }
                 }
                 else
                 {
-                    MessageBox.Show(Model_Path);
+                    var DLAddressBox = new DrawListAddressBox();
+                    if (DLAddressBox.ShowDialog().Value)
+                    {
+                        uint DrawListModelAddress = DLAddressBox.Address & ~0x80000000;
+
+                        RAMReader.BaseStream.Seek(DrawListModelAddress, SeekOrigin.Begin);
+
+                        ModelParser.ParseModel(RAMReader, this);
+
+                        ModelVisualizer.Content = ModelGroup;
+                        viewPort3d.ZoomExtents();
+                    }
                 }
             }
             else
@@ -251,16 +372,41 @@ namespace Animal_Crossing_Model_Editor
                 Filter = Exporters.Filter,
                 DefaultExt = Exporters.DefaultExtension
             };
-            var Exporter = new ObjExporter();
 
             if (Save_File_Dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                using (FileStream Stream = new FileStream(Save_File_Dialog.FileName, FileMode.OpenOrCreate))
+                string SaveFolder = Path.GetDirectoryName(Save_File_Dialog.FileName);
+
+                // Save Textures
+                foreach (KeyValuePair<string, BitmapSource> Image in TextureList)
                 {
-                    Exporter.MaterialsFile = Path.GetDirectoryName(Save_File_Dialog.FileName) + "\\" + Path.GetFileNameWithoutExtension(Save_File_Dialog.FileName) + ".mtl";
+                    using (var FStream = new FileStream(SaveFolder + "\\" + Image.Key + ".png", FileMode.Create))
+                    {
+                        var Encoder = new PngBitmapEncoder();
+                        Encoder.Frames.Add(BitmapFrame.Create(Image.Value));
+                        Encoder.Save(FStream);
+                    }
+                }
+
+                // Save Models
+                using (FileStream Stream = new FileStream(Save_File_Dialog.FileName, FileMode.Create))
+                {
                     //var MP = ModelPoints.Points;
                     //ModelPoints.Points = null; // Don't export vertices
-                    Exporter.Export(viewPort3d.Viewport, Stream);
+                    var ModelExporter = Exporters.Create(Save_File_Dialog.FileName);
+                    if (ModelExporter is ObjExporter)
+                    {
+                        var OExporter = ModelExporter as ObjExporter;
+                        OExporter.MaterialsFile = Path.GetDirectoryName(Save_File_Dialog.FileName) + Path.DirectorySeparatorChar
+                            + Path.GetFileNameWithoutExtension(Save_File_Dialog.FileName) + "_Material.mtl";
+                        
+                        foreach (var Mat in ModelGroup.Children)
+                        {
+                            Console.WriteLine("Material: " + (Mat as GeometryModel3D).Material.GetName());
+                        }
+                    }
+
+                    ModelExporter.Export(ModelGroup, Stream);
                     //ModelPoints.Points = MP;
                 }
             }
